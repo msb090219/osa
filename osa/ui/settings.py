@@ -136,6 +136,15 @@ class SettingsDialog(QDialog):
         cal_row.addWidget(reset_btn)
         form.addRow("Baseline", cal_row)
 
+        import osa.autostart as autostart
+
+        self.autostart = QCheckBox("launch OSA when Windows starts")
+        try:
+            self.autostart.setChecked(autostart.is_enabled())
+        except OSError:
+            pass
+        form.addRow("Startup", self.autostart)
+
         hint = QLabel(
             "Calibrate whenever your desk setup changes "
             "(chair height, monitor, camera angle)."
@@ -176,6 +185,15 @@ class SettingsDialog(QDialog):
         cfg["sound_on"] = self.sound.isChecked()
         cfg["reminder_enabled"] = self.reminder.isChecked()
         cfg["reminder_interval_min"] = int(self.reminder_min.value())
+
+        import osa.autostart as autostart
+
+        try:
+            if autostart.is_enabled() != self.autostart.isChecked():
+                autostart.set_enabled(self.autostart.isChecked())
+        except OSError:
+            pass
+
         cam_text = self.cam.currentText()
         new_cam = int(cam_text.split()[-1]) if cam_text else cfg["camera_index"]
         changed = new_cam != cfg["camera_index"]

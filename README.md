@@ -6,7 +6,7 @@ A local, private posture guard for people with forward head posture and thoracic
 
 ## Why
 
-Hours of poking your head toward a laptop screen is exactly what reinforces a straight neck (military neck) and a hunched upper back. OSA doesn't diagnose or treat anything — it just kills the daily slouch-hours and reminds you to move, so the corrective work you're already doing isn't being undone every time you sit down.
+Hours of poking your head toward a laptop screen is exactly what reinforces a straight neck (military neck) and a hunched upper back. OSA doesn't diagnose or treat anything — it just kills the daily slouch-hours and reminds you to move, so the corrective work you're already doing isn't undone every time you sit down.
 
 ## Privacy
 
@@ -15,32 +15,50 @@ Hours of poking your head toward a laptop screen is exactly what reinforces a st
 - **No frames, images, or video are ever written to disk** — only anonymous landmark coordinates, held in memory.
 - Posture history lives in `%APPDATA%\OSA\` (a small SQLite file), outside this repo, and is never uploaded anywhere.
 
-## Features (v1 roadmap)
+## How to use
 
-- [ ] One-click calibration of your personal "sitting tall" baseline
-- [ ] 3-signal detection tuned for forward-head + hunch: head pitch, head sink, lean-in ratio
-- [ ] Always-on-top HUD (green / amber / red), draggable, position remembered
-- [ ] Toast notification after sustained bad posture (default 45 s), re-nags politely, optional chime
-- [ ] Away detection — if you leave the desk, it stops scoring and never nags
-- [ ] Stretch-break reminders (chin tucks, thoracic extensions, wall angels, …) with an editable list
-- [ ] Simple daily stats: "% of monitored time in good posture" + 7-day mini chart
-- [ ] Starts with Windows (optional), lives in the system tray, pauses for meetings
+1. **Calibrate** (tray menu → *Calibrate…*): sit at your tallest, chin gently tucked — after a 3 s countdown OSA captures ~5 s of your best posture, then asks you to **deliberately relax into your typical slouch** for a few seconds. That hunch sample teaches OSA which direction is "bad" *for your body on your camera setup* — no generic assumptions.
+2. **Live**: a slim always-on-top HUD shows a 10-segment meter — green (good), amber (drifting), red (hunched). The tray dot mirrors it.
+3. **Nudges**: hunch long enough (45 s by default) and you get a toast; stay hunched and it politely re-nags. Sit well for 10 s and it acknowledges.
+4. **Life happens**: leave the desk and it stops scoring (grey). Pause it for meetings. Recalibrate whenever your chair/monitor setup changes.
+5. **Stretch breaks**: every 40 min (configurable) it suggests one of five exercises aimed at FHP/hunch — chin tucks, thoracic extensions, wall angels, doorway pec stretch, scapular squeezes. Edit the list in `%APPDATA%\OSA\config.json`.
+6. **Stats**: Settings → Stats shows today's % good posture and a 7-day bar chart.
 
 ## Dev setup
 
 Requires Python 3.10+ on Windows.
 
 ```bash
-# 1. create a venv and install dependencies
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt -r requirements-dev.txt
-
-# 2. fetch the MediaPipe models (~16 MB, one time; not stored in git)
-python fetch_models.py
-
-# 3. run
-python main.py
+python fetch_models.py        # ~16 MB of MediaPipe models, one time
+python main.py                # the app; or vision_demo.py for a console demo
+.venv\Scripts\pytest          # 27 unit tests
 ```
+
+## How it works
+
+Three scale-invariant signals, all normalized by your inter-shoulder width:
+
+| Signal | Catches | 
+|---|---|
+| `head_pitch` | chin dropping toward the screen (from the face transform matrix) |
+| `head_sink` | ears sinking toward shoulders as you collapse |
+| `lean_in` | face-to-shoulder width ratio climbing as you poke toward the monitor |
+
+Calibration stores each signal's baseline + a tolerance (your own jitter, σ-scaled, with noise floors). The score is the worst signal's deviation in its bad direction, floored at 0 — sitting *taller* than baseline is never penalized. Sensitivity (Settings) scales all tolerances.
+
+## Roadmap
+
+- [x] One-click personal calibration (tall + hunch phases)
+- [x] 3-signal FHP/hunch detection with per-user learned bad directions
+- [x] Always-on-top HUD, tray app, native toasts, optional chime
+- [x] Grace period + re-nag + recovery detection; away & pause states
+- [x] Stretch-break reminders with editable exercise list
+- [x] SQLite posture history + today/7-day stats
+- [x] Settings (sensitivity, timing, camera, sound, start-with-Windows)
+- [ ] Single-file `.exe` via PyInstaller (known-fiddly; next release)
+- [ ] Maybe: HUD click-through mode, per-signal breakdown display
 
 ## Disclaimer
 
