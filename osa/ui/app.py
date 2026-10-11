@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, QTimer
 
 import config as config_mod
 from osa.core.baseline import Baseline, Calibrator
@@ -17,6 +17,7 @@ from osa.core.states import (
     PostureStateMachine,
     Thresholds,
 )
+from osa.storage.db import PostureLog
 from osa.vision.worker import VisionWorker
 from .hud import Hud
 from .tray import Tray
@@ -80,8 +81,30 @@ class OsaApp(QObject):
         # calibration bookkeeping
         self._cal: dict | None = None  # {"stage": …, "t0": …, "cal": Calibrator}
 
+        # posture history + stretch reminders
+        self.log = PostureLog(config_mod.APP_DIR / "log.db")
+        self.session_id = self.log.start_session()
+        self._bucket = self._new_bucket(-1)
+        self.reminder_timer = QTimer(self)
+        self.reminder_timer.setInterval(
+            int(self.cfg["reminder_interval_min"] * 60_000)
+        )
+        self.reminder_timer.timeout.connect(self._reminder_fire)
+        self._ex_i = 0
+
         self._quitting = False
         self._sync_uncalibrated_ui()
+
+    @staticmethod
+    def _new_bucket(minute: int) -> dict:
+        return {
+            "minute": minute,
+            "scorable": 0,
+            "good": 0,
+            "drifting": 0,
+            "bad": 0,
+            "dev_sum": 0.0,
+        }
 
     # ------------------------------------------------------------------
     def start(self) -> None:
@@ -91,11 +114,15 @@ class OsaApp(QObject):
                 "Sit tall, then choose Calibrate… from the tray menu.",
             )
         self.worker.start()
+        self.reminder_timer.start()
 
     def shutdown(self) -> None:
         if self._quitting:
             return
         self._quitting = True
+        self.reminder_timer.stop()
+        self._flush_bucket()
+        self.log.end_session(self.session_id)
         self.cfg["hud"]["x"], self.cfg["hud"]["y"] = (
             self.hud.pos().x(),
             self.hud.pos().y(),
@@ -154,9 +181,45 @@ class OsaApp(QObject):
 
         dev = self.baseline.deviation(sig, sensitivity=self.cfg["sensitivity"])
         state, events = self.machine.update(dev, time.monotonic())
+        if dev is not None:
+            self._accumulate(state, dev)
         self._render(state, dev)
         for ev in events:
             self._handle_event(ev)
+
+    def _accumulate(self, state: State, dev: float) -> None:
+        m = int(time.time() // 60)
+        if self._bucket["minute"] != m:
+            self._flush_bucket()
+            self._bucket = self._new_bucket(m)
+        b = self._bucket
+        b["scorable"] += 1
+        b[state.value] += 1  # good / drifting / bad
+        b["dev_sum"] += dev
+
+    def _flush_bucket(self) -> None:
+        b = self._bucket
+        if b["scorable"] > 0:
+            self.log.record_minute(
+                b["minute"] * 60,
+                b["scorable"],
+                b["good"],
+                b["drifting"],
+                b["bad"],
+                b["dev_sum"] / b["scorable"],
+            )
+
+    def _reminder_fire(self) -> None:
+        if not self.cfg.get("reminder_enabled"):
+            return
+        if self.machine.state.value not in ("good", "drifting", "bad"):
+            return  # away / paused / error — don't remind an empty chair
+        exs = self.cfg.get("exercises") or []
+        if not exs:
+            return
+        ex = exs[self._ex_i % len(exs)]
+        self._ex_i += 1
+        self.tray.toast(f"Stretch break: {ex['name']}", ex.get("how", ""))
 
     def _cal_step(self, sig) -> None:
         cal = self._cal
@@ -263,7 +326,7 @@ class OsaApp(QObject):
 
         from .settings import SettingsDialog
 
-        dlg = SettingsDialog(self.cfg)
+        dlg = SettingsDialog(self.cfg, log=self.log)
         dlg.calibrate_requested.connect(
             lambda: (dlg.accept(), self.start_calibration())
         )
@@ -272,6 +335,9 @@ class OsaApp(QObject):
             cam_changed = dlg.apply_to(self.cfg)
             self.machine.thr.grace_s = self.cfg["grace_s"]
             self.machine.thr.renag_s = self.cfg["renag_s"]
+            self.reminder_timer.setInterval(
+                int(self.cfg["reminder_interval_min"] * 60_000)
+            )
             config_mod.save(self.cfg)
             if cam_changed:
                 self._restart_worker()

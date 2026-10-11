@@ -19,6 +19,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .stats import StatsTab
+
 
 def available_cameras(max_index: int = 4) -> list[int]:
     """Probe camera indices (slow-ish, ~0.5s per closed one) — called on open."""
@@ -35,7 +37,7 @@ class SettingsDialog(QDialog):
     calibrate_requested = Signal()
     reset_baseline_requested = Signal()
 
-    def __init__(self, cfg: dict, parent=None):
+    def __init__(self, cfg: dict, log=None, parent=None):
         super().__init__(parent)
         self.cfg = cfg
         self._cam_changed = False
@@ -44,7 +46,14 @@ class SettingsDialog(QDialog):
 
         tabs = QTabWidget()
         tabs.addTab(self._general_tab(), "&General")
-        # "Stats" tab slot is added by M5
+        if log is not None:
+            self.stats_tab = StatsTab(log)
+            tabs.addTab(self.stats_tab, "S&tats")
+            tabs.currentIndexChanged.connect(
+                lambda i: self.stats_tab.refresh() if tabs.widget(i) is self.stats_tab else None
+            )
+        else:
+            self.stats_tab = None
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
@@ -89,6 +98,19 @@ class SettingsDialog(QDialog):
         self.sound = QCheckBox("gentle chime with alerts")
         self.sound.setChecked(bool(c["sound_on"]))
         form.addRow("Sound", self.sound)
+
+        rem_row = QHBoxLayout()
+        self.reminder = QCheckBox("every")
+        self.reminder.setChecked(bool(c["reminder_enabled"]))
+        self.reminder_min = QSpinBox()
+        self.reminder_min.setRange(5, 180)
+        self.reminder_min.setSuffix(" min")
+        self.reminder_min.setValue(int(c["reminder_interval_min"]))
+        rem_row.addWidget(self.reminder)
+        rem_row.addWidget(self.reminder_min)
+        rem_row.addWidget(QLabel("suggest a stretch"))
+        rem_row.addStretch(1)
+        form.addRow("Stretch breaks", rem_row)
 
         cam_row = QHBoxLayout()
         self.cam = QComboBox()
@@ -152,8 +174,15 @@ class SettingsDialog(QDialog):
         cfg["grace_s"] = float(self.grace.value())
         cfg["renag_s"] = float(self.renag.value())
         cfg["sound_on"] = self.sound.isChecked()
+        cfg["reminder_enabled"] = self.reminder.isChecked()
+        cfg["reminder_interval_min"] = int(self.reminder_min.value())
         cam_text = self.cam.currentText()
         new_cam = int(cam_text.split()[-1]) if cam_text else cfg["camera_index"]
         changed = new_cam != cfg["camera_index"]
         cfg["camera_index"] = new_cam
         return changed
+
+    def showEvent(self, ev):
+        super().showEvent(ev)
+        if self.stats_tab is not None:
+            self.stats_tab.refresh()

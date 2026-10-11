@@ -27,6 +27,30 @@ DEFAULTS: dict = {
     "away_s": 15.0,
     "recovery_s": 10.0,
     "sound_on": False,
+    "reminder_enabled": True,
+    "reminder_interval_min": 40,
+    "exercises": [
+        {
+            "name": "Chin tucks",
+            "how": "Glide your head straight back (keep looking ahead). 10 slow reps.",
+        },
+        {
+            "name": "Thoracic extension",
+            "how": "Hands behind head, arch gently over the backrest. Breathe.",
+        },
+        {
+            "name": "Wall angels",
+            "how": "Back flat on a wall, slide arms up and down, keeping contact.",
+        },
+        {
+            "name": "Doorway pec stretch",
+            "how": "Forearm on the doorframe, gentle stretch, turn slightly away.",
+        },
+        {
+            "name": "Scapular squeezes",
+            "how": "Draw shoulder blades down and together. Hold 5s × 10.",
+        },
+    ],
     "hud": {"x": None, "y": None, "visible": True},
     "baseline": None,  # Baseline.to_dict() once calibrated
 }
