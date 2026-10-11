@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Model files — downloaded once via fetch_models.py
+models/*.task
+
+# Local data — posture logs must never be committed
+*.db
+*.sqlite3
+
+# Packaging
+build/
+dist/
+*.spec
+
+# Tooling
+.zcode/
+.idea/
+.vscode/
