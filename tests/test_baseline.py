@@ -34,8 +34,7 @@ def test_build_learns_bad_directions():
 def test_deviation_at_baseline_is_zero_and_hunch_is_bad():
     b = build()
     assert b.deviation(fs(pitch=5.0, sink=0.72, lean=0.52)) == 0.0
-    # exactly on tolerance → 1.0; multiples beyond
-    d_half = b.deviation(fs(pitch=7.0, sink=0.72, lean=0.52))  # pitch +2° < tol floor 4° → 0.5
+    d_half = b.deviation(fs(pitch=9.0, sink=0.72, lean=0.52))  # pitch +4° = half the 8° floor
     assert abs(d_half - 0.5) < 1e-9
     d_bad = b.deviation(fs(pitch=20.0, sink=0.5, lean=0.6))
     assert d_bad > 1.5
@@ -48,9 +47,22 @@ def test_sitting_taller_than_baseline_not_penalized():
 
 def test_sensitivity_scales_tolerance():
     b = build()
-    relaxed = fs(pitch=9.0, sink=0.72, lean=0.52)  # pitch +4° = exactly 1.0
+    relaxed = fs(pitch=13.0, sink=0.72, lean=0.52)  # pitch +8° = exactly 1.0
     assert abs(b.deviation(relaxed) - 1.0) < 1e-9
     assert abs(b.deviation(relaxed, sensitivity=2.0) - 2.0) < 1e-9
+
+
+def test_baseline_version_stamped_and_stale_rejected():
+    import pytest
+
+    b = build()
+    d = b.to_dict()
+    assert d["version"] == 2
+    Baseline.from_dict(d)  # roundtrip ok
+    stale = dict(d)
+    stale.pop("version")
+    with pytest.raises(ValueError):
+        Baseline.from_dict(stale)
 
 
 def test_unscorable_frame_returns_none():

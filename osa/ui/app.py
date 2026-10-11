@@ -8,6 +8,7 @@ from PySide6.QtCore import QObject, QTimer
 
 import config as config_mod
 from osa.core.baseline import Baseline, Calibrator
+from osa.core.smoother import Smoother
 from osa.core.states import (
     EVENT_ALERT,
     EVENT_CAM_ERROR,
@@ -54,8 +55,10 @@ class OsaApp(QObject):
             try:
                 self.baseline = Baseline.from_dict(self.cfg["baseline"])
                 self.machine.mark_calibrated()
-            except (KeyError, TypeError):
+            except (KeyError, TypeError, ValueError):
+                # stale calibration format or corrupt data — start fresh
                 self.cfg["baseline"] = None
+        self.smoother = Smoother(window=5, max_yaw_deg=30.0)
 
         self.hud = Hud()
         hud_cfg = self.cfg["hud"]
@@ -179,7 +182,12 @@ class OsaApp(QObject):
         if self.baseline is None:
             return
 
-        dev = self.baseline.deviation(sig, sensitivity=self.cfg["sensitivity"])
+        smoothed = self.smoother.push(sig)
+        dev = (
+            self.baseline.deviation(smoothed, sensitivity=self.cfg["sensitivity"])
+            if smoothed is not None
+            else None
+        )
         state, events = self.machine.update(dev, time.monotonic())
         if dev is not None:
             self._accumulate(state, dev)

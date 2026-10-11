@@ -26,12 +26,20 @@ SIGNALS = ("head_pitch", "head_sink", "lean_in")
 # Tolerance floors: even a still person jitters this much between frames, so
 # a tolerance below the floor would fire on noise. Calibration σ can only
 # widen these. Values guided by live measurements on the target laptop.
-TOL_FLOOR = {"head_pitch": 4.0, "head_sink": 0.05, "lean_in": 0.025}
-SIGMA_MULT = 2.0
+# Tolerance floors: sized against real-world frame jitter measured on a live
+# laptop webcam (pitch swings ±5–10° casually from head-turn coupling; sink
+# wobbles ~0.03 between frames). Calibration σ can only widen these.
+TOL_FLOOR = {"head_pitch": 8.0, "head_sink": 0.09, "lean_in": 0.03}
+SIGMA_MULT = 2.5
 
 # If the hunch sample barely moves a signal, the direction is unreliable —
 # exclude that signal from scoring rather than guess.
 HUNCH_MIN_DELTA = {"head_pitch": 2.0, "head_sink": 0.03, "lean_in": 0.02}
+
+
+# If the tolerance/baseline format changes, bump this so stale calibrations
+# are rejected instead of silently mis-scoring.
+BASELINE_VERSION = 2
 
 
 @dataclass
@@ -68,12 +76,17 @@ class Baseline:
     # --- persistence -----------------------------------------------------
     def to_dict(self) -> dict:
         return {
+            "version": BASELINE_VERSION,
             "created_at": self.created_at,
             "signals": {k: vars(v) for k, v in self.signals.items()},
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "Baseline":
+        if d.get("version") != BASELINE_VERSION:
+            raise ValueError(
+                f"baseline from an older OSA (v{d.get('version')}) — recalibrate"
+            )
         return cls(
             signals={k: SignalCal(**v) for k, v in d["signals"].items()},
             created_at=d.get("created_at", 0.0),
