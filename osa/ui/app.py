@@ -36,6 +36,7 @@ _CAL_COUNTDOWN_S = 3.0
 class OsaApp(QObject):
     def __init__(self, models_dir: Path):
         super().__init__()
+        self.models_dir = Path(models_dir)
         self.cfg = config_mod.load()
         self.machine = PostureStateMachine(
             Thresholds(
@@ -70,7 +71,7 @@ class OsaApp(QObject):
         self.tray.sync_hud_action(self.hud.isVisible())
 
         self.worker = VisionWorker(
-            models_dir, self.cfg["camera_index"], self.cfg["fps"]
+            self.models_dir, self.cfg["camera_index"], self.cfg["fps"]
         )
         self.worker.frame.connect(self._on_frame)
         self.worker.cam_error.connect(self._on_cam_error)
@@ -258,10 +259,41 @@ class OsaApp(QObject):
         QApplication.instance().quit()
 
     def _open_settings(self) -> None:
-        self.tray.toast(
-            "Settings",
-            f"Settings UI lands in v1.0 — for now edit:\n{config_mod.CONFIG_PATH}",
+        from PySide6.QtWidgets import QDialog
+
+        from .settings import SettingsDialog
+
+        dlg = SettingsDialog(self.cfg)
+        dlg.calibrate_requested.connect(
+            lambda: (dlg.accept(), self.start_calibration())
         )
+        dlg.reset_baseline_requested.connect(self._reset_baseline)
+        if dlg.exec() == QDialog.Accepted:
+            cam_changed = dlg.apply_to(self.cfg)
+            self.machine.thr.grace_s = self.cfg["grace_s"]
+            self.machine.thr.renag_s = self.cfg["renag_s"]
+            config_mod.save(self.cfg)
+            if cam_changed:
+                self._restart_worker()
+
+    def _reset_baseline(self) -> None:
+        self.cfg["baseline"] = None
+        config_mod.save(self.cfg)
+        self.baseline = None
+        self.machine = PostureStateMachine(self.machine.thr)  # back to UNCALIBRATED
+        self._sync_uncalibrated_ui()
+        self.tray.toast("Baseline reset", "Calibrate when you're ready.")
+
+    def _restart_worker(self) -> None:
+        self.worker.stop()
+        self.worker.wait(4000)
+        self.worker = VisionWorker(
+            self.models_dir, self.cfg["camera_index"], self.cfg["fps"]
+        )
+        self.worker.frame.connect(self._on_frame)
+        self.worker.cam_error.connect(self._on_cam_error)
+        self.worker.cam_recovered.connect(self._on_cam_recovered)
+        self.worker.start()
 
     def _sync_uncalibrated_ui(self) -> None:
         self.hud.set_status("uncalibrated", "calibrate me")
