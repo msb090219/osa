@@ -4,6 +4,13 @@ __pycache__/
 .venv/
 .pytest_cache/
 
+# Local agent/tooling config
+.zcode/
+.zcodeignore
+
+# Logs from local smoke tests
+*.log
+
 # Model files — downloaded once via fetch_models.py
 models/*.task
 
