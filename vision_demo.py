@@ -16,6 +16,7 @@ from pathlib import Path
 
 import cv2
 
+from osa.vision import camera as camera_mod
 from osa.vision.camera import CameraError, open_camera, paced_frames, warm_up
 from osa.vision.landmarks import Landmarkers
 
@@ -23,10 +24,10 @@ ROOT = Path(__file__).resolve().parent
 
 
 def list_cameras() -> None:
-    print("Probing camera indices 0..3 (CAP_DSHOW, after exposure warm-up)…")
+    print("Probing camera indices 0..3 (platform backend, after exposure warm-up)…")
     found = 0
     for i in range(4):
-        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+        cap = cv2.VideoCapture(i, camera_mod._BACKEND)
         if cap.isOpened():
             warm_up(cap, 2.0)
             ok, frame = cap.read()

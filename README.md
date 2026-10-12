@@ -31,15 +31,17 @@ Hours of poking your head toward a laptop screen is exactly what reinforces a st
 
 ## Dev setup
 
-Requires Python 3.10+ on Windows.
+Requires Python 3.10+. Windows is the primary platform; macOS works from source (see notes below).
 
 ```bash
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt -r requirements-dev.txt
+.venv\Scripts\pip install -r requirements.txt -r requirements-dev.txt   # macOS/Linux: .venv/bin/pip
 python fetch_models.py        # ~16 MB of MediaPipe models, one time
 python main.py                # the app; or vision_demo.py for a console demo
-.venv\Scripts\pytest          # 27 unit tests
+.venv\Scripts\pytest          # 45 unit tests
 ```
+
+**macOS from source:** works with the same steps. The first time the app opens the camera, macOS will ask *"Terminal would like to access the camera"* — click **Allow**. Two Windows-only conveniences don't apply: the alert chime falls back to the system beep, and the "start with the OS" setting is hidden (add OSA to Login Items manually if you want it to autostart).
 
 ## How it works
 

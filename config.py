@@ -1,18 +1,26 @@
-"""Config persistence — %APPDATA%\\OSA\\config.json.
+"""Config persistence — one small JSON file, in the platform's proper place.
 
-Posture baselines and settings live here, OUTSIDE the repo, and never leave
-the machine.
+Windows: %APPDATA%\\OSA · macOS: ~/Library/Application Support/OSA ·
+elsewhere: ~/.config/OSA. Posture baselines and settings live here, outside
+the repo, and never leave the machine.
 """
 from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
 
 APP_NAME = "OSA"
 
-APP_DIR = Path(os.environ.get("APPDATA", Path.home() / ".config")) / APP_NAME
+if sys.platform == "win32":
+    APP_DIR = Path(os.environ.get("APPDATA", Path.home())) / APP_NAME
+elif sys.platform == "darwin":
+    APP_DIR = Path.home() / "Library" / "Application Support" / APP_NAME
+else:
+    APP_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / APP_NAME
+
 CONFIG_PATH = APP_DIR / "config.json"
 
 DEFAULTS: dict = {

@@ -1,7 +1,7 @@
 """Optional "Start with Windows" — one HKCU Run-key entry, nothing else.
 
-The entry launches the repo's main.py with pythonw.exe, so it only makes
-sense while OSA runs from source (exe packaging will rewrite the command).
+Windows-only; from a frozen (PyInstaller) build the entry points at the
+exe itself, from source it points at pythonw + main.py.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 try:
     import winreg
-except ImportError:  # non-Windows dev machines
+except ImportError:  # non-Windows platforms
     winreg = None
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -18,6 +18,8 @@ VALUE_NAME = "OSA"
 
 
 def _command() -> str:
+    if getattr(sys, "frozen", False):  # packaged exe — it *is* the app
+        return f'"{sys.executable}"'
     py = Path(sys.executable)
     pyw = py.with_name("pythonw.exe")
     exe = str(pyw) if pyw.exists() else str(py)

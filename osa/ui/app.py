@@ -25,14 +25,11 @@ from .hud import Hud
 from .preview import PreviewWindow
 from .tray import Tray
 
-try:
-    import winsound
+def _chime() -> None:
+    """Cross-platform system beep (Windows used winsound before; Qt covers all)."""
+    from PySide6.QtWidgets import QApplication
 
-    def _chime() -> None:
-        winsound.MessageBeep(winsound.MB_ICONASTERISK)
-except ImportError:  # non-Windows dev machines
-    def _chime() -> None:
-        pass
+    QApplication.beep()
 
 _CAL_TOASTS = {
     "enter_tall": (

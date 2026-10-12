@@ -1,14 +1,24 @@
 """Camera capture via OpenCV, paced to ~2 fps for OSA's needs.
 
-Frames are processed in memory and never written to disk.
+Frames are processed in memory and never written to disk. The capture
+backend is platform-appropriate: DirectShow on Windows (fast, reliable),
+AVFoundation on macOS, the OS default elsewhere.
 """
 from __future__ import annotations
 
+import sys
 import time
 from typing import Iterator
 
 import cv2
 import numpy as np
+
+if sys.platform == "win32":
+    _BACKEND = cv2.CAP_DSHOW
+elif sys.platform == "darwin":
+    _BACKEND = cv2.CAP_AVFOUNDATION
+else:
+    _BACKEND = cv2.CAP_ANY
 
 
 class CameraError(RuntimeError):
@@ -16,8 +26,8 @@ class CameraError(RuntimeError):
 
 
 def open_camera(index: int = 0, width: int = 640, height: int = 480) -> cv2.VideoCapture:
-    """Open a camera. CAP_DSHOW avoids the slow MSMF backend on Windows."""
-    cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+    """Open a camera using the platform's preferred backend."""
+    cap = cv2.VideoCapture(index, _BACKEND)
     if not cap.isOpened():
         cap.release()
         raise CameraError(

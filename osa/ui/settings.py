@@ -136,14 +136,19 @@ class SettingsDialog(QDialog):
         cal_row.addWidget(reset_btn)
         form.addRow("Baseline", cal_row)
 
+        import sys
+
         import osa.autostart as autostart
 
-        self.autostart = QCheckBox("launch OSA when Windows starts")
-        try:
-            self.autostart.setChecked(autostart.is_enabled())
-        except OSError:
-            pass
-        form.addRow("Startup", self.autostart)
+        if sys.platform == "win32":
+            self.autostart = QCheckBox("launch OSA when Windows starts")
+            try:
+                self.autostart.setChecked(autostart.is_enabled())
+            except OSError:
+                pass
+            form.addRow("Startup", self.autostart)
+        else:  # autostart is Windows-only in v1 — hide rather than dead-end
+            self.autostart = None
 
         hint = QLabel(
             "Calibrate whenever your desk setup changes "
@@ -188,11 +193,12 @@ class SettingsDialog(QDialog):
 
         import osa.autostart as autostart
 
-        try:
-            if autostart.is_enabled() != self.autostart.isChecked():
-                autostart.set_enabled(self.autostart.isChecked())
-        except OSError:
-            pass
+        if self.autostart is not None:
+            try:
+                if autostart.is_enabled() != self.autostart.isChecked():
+                    autostart.set_enabled(self.autostart.isChecked())
+            except (OSError, RuntimeError):
+                pass
 
         cam_text = self.cam.currentText()
         new_cam = int(cam_text.split()[-1]) if cam_text else cfg["camera_index"]
