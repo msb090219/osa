@@ -46,7 +46,7 @@ def _spine_curve(size: float) -> QPainterPath:
 def spine_icon(color_hex: str) -> QIcon:
     """Simple spine glyph: S-curve + four vertebra ticks, tinted per state."""
     icon = QIcon()
-    for size in (16, 24, 32, 48):
+    for size in (16, 24, 32, 48, 64, 128, 256):
         pm = QPixmap(size, size)
         pm.fill(QColor(0, 0, 0, 0))
         p = QPainter(pm)
