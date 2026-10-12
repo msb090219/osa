@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "osa"
+version = "1.0.0"
+description = "Optimal Spinal Alignment — a local, private posture guard"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "msb090219" }]
+dependencies = [
+    "mediapipe==1.1.0",
+    "opencv-python==5.0.0.93",
+    "PySide6==6.12.0",
+    "numpy>=2.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/msb090219/osa"
+
+[tool.setuptools.packages.find]
+include = ["osa*"]

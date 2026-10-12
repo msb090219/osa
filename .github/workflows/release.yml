@@ -26,6 +26,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
+      - run: pip install -e .
       - run: python fetch_models.py
       - run: pytest -q
 

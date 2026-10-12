@@ -4,6 +4,16 @@ A local, private posture guard for people with forward head posture and thoracic
 
 > Nothing ever leaves your machine.
 
+## Download
+
+Grab the zip for your system from [**Releases**](https://github.com/msb090219/osa/releases), unzip, and double-click **`osa.exe`** (Windows) or **`OSA.app`** (macOS — Apple Silicon and Intel builds available). No Python or installs needed; the posture models ship inside the zip.
+
+First-run heads-ups, because the binaries are unsigned (code-signing certificates cost real money and aren't in v1):
+
+- **Windows** may show SmartScreen: click *More info* → *Run anyway*.
+- **macOS** Gatekeeper: right-click `OSA.app` → *Open* → *Open* the first time.
+- Both systems will ask for **camera permission** — that's the whole app; grant it.
+
 ## Why
 
 Hours of poking your head toward a laptop screen is exactly what reinforces a straight neck (military neck) and a hunched upper back. OSA doesn't diagnose or treat anything — it just kills the daily slouch-hours and reminds you to move, so the corrective work you're already doing isn't undone every time you sit down.
@@ -35,10 +45,11 @@ Requires Python 3.10+. Windows is the primary platform; macOS works from source 
 
 ```bash
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt -r requirements-dev.txt   # macOS/Linux: .venv/bin/pip
-python fetch_models.py        # ~16 MB of MediaPipe models, one time
-python main.py                # the app; or vision_demo.py for a console demo
-.venv\Scripts\pytest          # 45 unit tests
+.venv\Scripts\pip install -r requirements-dev.txt   # macOS/Linux: .venv/bin/pip
+.venv\Scripts\pip install -e .                      # makes `osa` importable for tests
+.venv\Scripts\python fetch_models.py                # ~16 MB of MediaPipe models, one time
+.venv\Scripts\python main.py                        # the app; or vision_demo.py for a console demo
+.venv\Scripts\pytest                                # 45 unit tests
 ```
 
 **macOS from source:** works with the same steps. The first time the app opens the camera, macOS will ask *"Terminal would like to access the camera"* — click **Allow**. Two Windows-only conveniences don't apply: the alert chime falls back to the system beep, and the "start with the OS" setting is hidden (add OSA to Login Items manually if you want it to autostart).
@@ -57,14 +68,15 @@ Calibration stores each signal's baseline + a tolerance (your own jitter, σ-sca
 
 ## Roadmap
 
-- [x] One-click personal calibration (tall + hunch phases)
+- [x] One-click personal calibration (tall + normal + hunch phases, camera setup checks, self-verification)
 - [x] 3-signal FHP/hunch detection with per-user learned bad directions
 - [x] Always-on-top HUD, tray app, native toasts, optional chime
 - [x] Grace period + re-nag + recovery detection; away & pause states
 - [x] Stretch-break reminders with editable exercise list
 - [x] SQLite posture history + today/7-day stats
 - [x] Settings (sensitivity, timing, camera, sound, start-with-Windows)
-- [ ] Single-file `.exe` via PyInstaller (known-fiddly; next release)
+- [x] Prebuilt downloads for Windows and macOS via GitHub Releases
+- [ ] Code signing (kills the SmartScreen/Gatekeeper first-run warnings)
 - [ ] Maybe: HUD click-through mode, per-signal breakdown display
 
 ## Disclaimer
