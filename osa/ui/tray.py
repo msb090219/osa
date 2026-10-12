@@ -1,12 +1,22 @@
-"""System tray icon + menu. The icon is a plain colored dot, drawn in code.
+"""System tray icon + menu. The icon is a simple spine glyph, drawn in code
+and tinted by posture state (green/amber/red/grey/blue).
 
 Left-click opens the menu at the cursor (Windows only does that on
 right-click by default); right-click still works too.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, Signal
-from PySide6.QtGui import QAction, QColor, QCursor, QIcon, QPainter, QPixmap
+from PySide6.QtCore import QObject, QPointF, Qt, Signal
+from PySide6.QtGui import (
+    QAction,
+    QColor,
+    QCursor,
+    QIcon,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+)
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
 STATE_COLORS = {
@@ -20,19 +30,53 @@ STATE_COLORS = {
 }
 
 
-def dot_icon(color_hex: str, ring: bool = False) -> QIcon:
-    pm = QPixmap(32, 32)
-    pm.fill(QColor(0, 0, 0, 0))
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.Antialiasing)
-    p.setPen(QColor(0, 0, 0, 60))
-    p.setBrush(QColor(color_hex))
-    p.drawEllipse(4, 4, 24, 24)
-    if ring:  # "hollow" look for pre-calibration
-        p.setCompositionMode(QPainter.CompositionMode_Clear)
-        p.drawEllipse(9, 9, 14, 14)
-    p.end()
-    return QIcon(pm)
+def _spine_curve(size: float) -> QPainterPath:
+    """A gentle S-curve from top to bottom — the spine's natural shape,
+    kept well inside the canvas so nothing clips at small tray sizes."""
+    path = QPainterPath()
+    path.moveTo(0.58 * size, 0.14 * size)
+    path.cubicTo(
+        0.40 * size, 0.34 * size,
+        0.64 * size, 0.66 * size,
+        0.46 * size, 0.86 * size,
+    )
+    return path
+
+
+def spine_icon(color_hex: str) -> QIcon:
+    """Simple spine glyph: S-curve + four vertebra ticks, tinted per state."""
+    icon = QIcon()
+    for size in (16, 24, 32, 48):
+        pm = QPixmap(size, size)
+        pm.fill(QColor(0, 0, 0, 0))
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing)
+        curve = _spine_curve(size)
+
+        # soft dark under-stroke so the glyph reads on light and dark trays
+        under = QPen(QColor(0, 0, 0, 90))
+        under.setWidth(max(3, round(size * 0.16)))
+        under.setCapStyle(Qt.PenCapStyle.RoundCap)
+        p.setPen(under)
+        p.drawPath(curve)
+
+        pen = QPen(QColor(color_hex))
+        pen.setWidth(max(2, round(size * 0.11)))
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        p.setPen(pen)
+        p.drawPath(curve)
+
+        tick = QPen(QColor(color_hex))
+        tick.setWidth(max(2, round(size * 0.07)))
+        tick.setCapStyle(Qt.PenCapStyle.RoundCap)
+        p.setPen(tick)
+        half = size * 0.14
+        for t in (0.16, 0.38, 0.62, 0.84):
+            pt = curve.pointAtPercent(t)
+            p.drawLine(QPointF(pt.x() - half, pt.y()), QPointF(pt.x() + half, pt.y()))
+        p.end()
+        icon.addPixmap(pm)
+    return icon
 
 
 class Tray(QObject):
@@ -46,7 +90,7 @@ class Tray(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.icon = QSystemTrayIcon(self)
-        self.icon.setIcon(dot_icon(STATE_COLORS["uncalibrated"], ring=True))
+        self.icon.setIcon(spine_icon(STATE_COLORS["uncalibrated"]))
         self.icon.setToolTip("OSA — not calibrated yet")
         self.icon.show()
 
@@ -113,7 +157,7 @@ class Tray(QObject):
     # ------------------------------------------------------------------
     def set_state(self, key: str, detail: str) -> None:
         color = STATE_COLORS.get(key, STATE_COLORS["uncalibrated"])
-        self.icon.setIcon(dot_icon(color))
+        self.icon.setIcon(spine_icon(color))
         label = key.replace("_", " ")
         self.icon.setToolTip(f"OSA — {label}" + (f" ({detail})" if detail else ""))
         self.status_action.setText(f"status: {label}" + (f" · {detail}" if detail else ""))
