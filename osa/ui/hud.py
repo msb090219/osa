@@ -42,6 +42,10 @@ class Hud(QWidget):
         self._drag_off = QPoint()
 
     doubleClicked = Signal()
+    moved = Signal()  # fired on every move so docked windows can follow
+
+    def moveEvent(self, _):
+        self.moved.emit()
 
     # ------------------------------------------------------------------
     def set_live(self, level: float, text: str) -> None:

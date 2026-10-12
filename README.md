@@ -17,7 +17,7 @@ Hours of poking your head toward a laptop screen is exactly what reinforces a st
 
 ## How to use
 
-1. **Calibrate** (tray menu → *Calibrate…*) — a guided ~50 s flow with a live **camera preview** (selfie view with the shoulder line and ear marks OSA is measuring):
+1. **Calibrate** (tray menu → *Calibrate…*) — a guided ~50 s flow with a live **camera preview docked under the HUD** (~15 fps selfie view with the shoulder line and ear marks OSA is measuring, follows the HUD when you drag it):
    - **Setup check** — OSA first validates your *camera*: level (not tilted), height (you shouldn't be craning up or tilting your chin down at it), framing (enough torso visible), and lighting. The HUD shows which check is failing and how to fix it.
    - **Sit tall** (~10 s) — your best posture, chin gently tucked.
    - **Sit normal** (~8 s) — everyday posture; this becomes your scoring anchor: **green = at least as good as your normal sitting**.

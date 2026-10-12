@@ -8,7 +8,7 @@ nothing here is ever written to disk.
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QRect, Qt
-from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen
+from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QWidget
 
 from ..vision.worker import PreviewPayload
@@ -18,13 +18,15 @@ _CAPTION_H = 34
 
 
 class PreviewWindow(QWidget):
+    """Docked below the HUD; same width so the two read as one unit."""
+
     def __init__(self):
         super().__init__()
         self.setWindowFlags(
             Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedSize(480, 400)
+        self.setFixedSize(320, 288)  # HUD is 320 wide; 4:3 video + caption
 
         self._img: QImage | None = None
         self._img_size = (0, 0)
@@ -66,9 +68,19 @@ class PreviewWindow(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         w, h = self.width(), self.height()
 
+        # plate: squared top (fuses with the HUD above), rounded bottom
+        r = 10
+        plate = QPainterPath()
+        plate.moveTo(0, 0)
+        plate.lineTo(w, 0)
+        plate.lineTo(w, h - r)
+        plate.quadTo(w, h, w - r, h)
+        plate.lineTo(r, h)
+        plate.quadTo(0, h, 0, h - r)
+        plate.closeSubpath()
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(18, 20, 24, 235))
-        p.drawRoundedRect(0, 0, w, h, 12, 12)
+        p.drawPath(plate)
 
         video = QRect(_PAD, _PAD, w - 2 * _PAD, h - 2 * _PAD - _CAPTION_H)
         p.setBrush(QColor(0, 0, 0))

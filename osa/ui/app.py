@@ -113,6 +113,7 @@ class OsaApp(QObject):
         # calibration camera preview (hidden until a calibration runs)
         self.preview_win = PreviewWindow()
         self.worker.preview.connect(self.preview_win.update_frame)
+        self.hud.moved.connect(self._dock_preview)
 
         # calibration bookkeeping
         self._cal: CalibrationSession | None = None
@@ -177,6 +178,7 @@ class OsaApp(QObject):
         self.preview_win.set_instruction(*_CAL_INSTRUCTIONS["setup"])
         self.preview_win.set_caption("setup check…")
         self.preview_win.show()
+        self._dock_preview()
         self.preview_win.raise_()
         self.tray.toast(
             "Setup check",
@@ -192,6 +194,20 @@ class OsaApp(QObject):
                 "Setup checks skipped",
                 "Calibrating anyway — watch for wobblier scoring.",
             )
+
+    def _dock_preview(self) -> None:
+        """Seat the preview flush under the HUD (flip above if it won't fit)."""
+        if not self.preview_win.isVisible():
+            return
+        screen = self.hud.screen()
+        avail = screen.availableGeometry() if screen else None
+        x = self.hud.x()
+        y = self.hud.y() + self.hud.height()
+        if avail is not None:
+            if y + self.preview_win.height() > avail.bottom():
+                y = self.hud.y() - self.preview_win.height()
+            x = max(avail.left(), min(x, avail.right() - self.preview_win.width()))
+        self.preview_win.move(x, y)
 
     def _cal_step(self, sig) -> None:
         res = self._cal.feed(sig, time.monotonic())
@@ -300,15 +316,18 @@ class OsaApp(QObject):
 
     # ------------------------------------------------------------------
     def _render(self, state: State, dev: float | None) -> None:
+        # dev is None while the smoother warms up (or the head is turned):
+        # show the band colour without a number
+        detail = f"{dev:.1f}" if dev is not None else ""
         if state is State.GOOD:
-            self.hud.set_live(dev or 0.0, "good")
-            self.tray.set_state("good", f"{dev:.1f}")
+            self.hud.set_live(dev if dev is not None else 0.0, "good")
+            self.tray.set_state("good", detail)
         elif state is State.DRIFTING:
-            self.hud.set_live(dev or 1.0, "drift")
-            self.tray.set_state("drifting", f"{dev:.1f}")
+            self.hud.set_live(dev if dev is not None else 1.0, "drift")
+            self.tray.set_state("drifting", detail)
         elif state is State.BAD:
-            self.hud.set_live(dev or 1.5, "hunched")
-            self.tray.set_state("bad", f"{dev:.1f}")
+            self.hud.set_live(dev if dev is not None else 1.5, "hunched")
+            self.tray.set_state("bad", detail)
         elif state is State.AWAY:
             self.hud.set_status("away", "away")
             self.tray.set_state("away", "")
