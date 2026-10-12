@@ -1,13 +1,13 @@
 """Calibration camera preview — its own floating box, not docked to anything.
 
-Shows the mirrored (selfie-view) camera feed with the shoulder line and
-ear marks OSA is measuring, the position-instruction banner, and a
-two-line caption that word-wraps (and elides) so text always fits.
-Nothing here is ever written to disk.
+Layout top-to-bottom: the video well fills the upper area (nothing overlays
+the feed except the measurement marks), then the position-instruction
+title/detail and a two-line word-wrapped caption below. Mirrored selfie
+view; frames are never written to disk.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QRect, Qt
+from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -23,9 +23,11 @@ from ..vision.worker import PreviewPayload
 _W = 320
 _PAD = 10
 _VIDEO_W = _W - 2 * _PAD
-_VIDEO_H = 228
-_CAPTION_H = 34  # two wrapped lines
-_H = _PAD + _VIDEO_H + 6 + _CAPTION_H + _PAD
+_VIDEO_H = 225  # exactly 4:3 at full inner width
+_TITLE_H = 20
+_DETAIL_H = 14
+_CAPTION_H = 30  # two wrapped lines
+_H = _PAD + _VIDEO_H + 8 + _TITLE_H + _DETAIL_H + 4 + _CAPTION_H + _PAD
 
 
 def _wrap_elided(fm: QFontMetrics, text: str, width: int, max_lines: int = 2) -> list[str]:
@@ -55,6 +57,8 @@ def _wrap_elided(fm: QFontMetrics, text: str, width: int, max_lines: int = 2) ->
 
 class PreviewWindow(QWidget):
     """A standalone always-on-top box placed near (never attached to) the HUD."""
+
+    moved = Signal()  # fired on every move so the HUD can be dragged along
 
     def __init__(self):
         super().__init__()
@@ -99,6 +103,9 @@ class PreviewWindow(QWidget):
     def mouseReleaseEvent(self, _):
         self._drag_off = QPoint()
 
+    def moveEvent(self, _):
+        self.moved.emit()
+
     # ------------------------------------------------------------------
     def paintEvent(self, _):
         p = QPainter(self)
@@ -115,7 +122,6 @@ class PreviewWindow(QWidget):
         p.drawRoundedRect(video, 8, 8)
 
         if self._img is not None:
-            # letterbox-fit the frame inside the video well
             iw, ih = self._img_size
             scale = min(video.width() / iw, video.height() / ih)
             dw, dh = int(iw * scale), int(ih * scale)
@@ -151,44 +157,41 @@ class PreviewWindow(QWidget):
                     p.drawEllipse(int(pt[0]) - 4, int(pt[1]) - 4, 8, 8)
             p.restore()
 
-        # position instruction banner across the top of the video
+        # --- text block below the video — nothing covers the feed ---------
+        inner_w = w - 2 * _PAD
+        ty = _PAD + _VIDEO_H + 8
+
         title, detail = self._instruction
         if title:
-            fm_t = QFontMetrics(QFont("Segoe UI", 15, QFont.Bold))
-            fm_d = QFontMetrics(QFont("Segoe UI", 9))
-            banner_h = 56 if detail else 36
-            banner = QRect(_PAD, _PAD, _VIDEO_W, banner_h)
-            p.setPen(Qt.NoPen)
-            p.setBrush(QColor(10, 12, 16, 208))
-            p.drawRoundedRect(banner, 8, 8)
-            inner_w = _VIDEO_W - 16
+            fm_t = QFontMetrics(QFont("Segoe UI", 12, QFont.Bold))
             p.setPen(QColor(255, 255, 255))
-            p.setFont(QFont("Segoe UI", 15, QFont.Bold))
+            p.setFont(QFont("Segoe UI", 12, QFont.Bold))
             p.drawText(
-                banner.adjusted(8, 4, -8, 0),
-                Qt.AlignHCenter | Qt.AlignTop,
+                QRect(_PAD, ty, inner_w, _TITLE_H),
+                Qt.AlignHCenter | Qt.AlignVCenter,
                 fm_t.elidedText(title, Qt.ElideRight, inner_w),
             )
-            if detail:
-                p.setPen(QColor(209, 213, 219))
-                p.setFont(QFont("Segoe UI", 9))
-                p.drawText(
-                    banner.adjusted(8, 33, -8, 0),
-                    Qt.AlignHCenter | Qt.AlignTop,
-                    fm_d.elidedText(detail, Qt.ElideRight, inner_w),
-                )
+            ty += _TITLE_H
+        if detail:
+            fm_d = QFontMetrics(QFont("Segoe UI", 9))
+            p.setPen(QColor(209, 213, 219))
+            p.setFont(QFont("Segoe UI", 9))
+            p.drawText(
+                QRect(_PAD, ty, inner_w, _DETAIL_H),
+                Qt.AlignHCenter | Qt.AlignVCenter,
+                fm_d.elidedText(detail, Qt.ElideRight, inner_w),
+            )
+            ty += _DETAIL_H
 
-        # caption strip — two wrapped, elided lines
         cap_fm = QFontMetrics(QFont("Segoe UI", 9))
-        cap_w = w - 2 * _PAD
-        lines = _wrap_elided(cap_fm, self._caption, cap_w, max_lines=2)
+        lines = _wrap_elided(cap_fm, self._caption, inner_w, max_lines=2)
         p.setFont(QFont("Segoe UI", 9))
-        p.setPen(QColor(235, 238, 242))
-        line_h = 15
-        y0 = h - _PAD - _CAPTION_H + (_CAPTION_H - line_h * len(lines)) // 2
+        p.setPen(QColor(156, 163, 175))
+        line_h = 14
+        cy = h - _PAD - _CAPTION_H + (_CAPTION_H - line_h * len(lines)) // 2
         for i, line in enumerate(lines):
             p.drawText(
-                QRect(_PAD, y0 + i * line_h, cap_w, line_h),
+                QRect(_PAD, cy + i * line_h, inner_w, line_h),
                 Qt.AlignHCenter | Qt.AlignVCenter,
                 line,
             )

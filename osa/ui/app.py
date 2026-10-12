@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QObject, QPoint, QTimer
 
 import config as config_mod
 from osa.core.baseline import Baseline
@@ -114,6 +114,13 @@ class OsaApp(QObject):
         # calibration camera preview (hidden until a calibration runs)
         self.preview_win = PreviewWindow()
         self.worker.preview.connect(self.preview_win.update_frame)
+
+        # during calibration the two boxes travel together (drag either)
+        self._pair_moving = False
+        self._last_hud = QPoint()
+        self._last_prev = QPoint()
+        self.hud.moved.connect(self._on_hud_moved)
+        self.preview_win.moved.connect(self._on_preview_moved)
 
         # calibration bookkeeping
         self._cal: CalibrationSession | None = None
@@ -239,6 +246,26 @@ class OsaApp(QObject):
                 y = self.hud.y() - self.preview_win.height() - 16
             x = max(avail.left(), min(x, avail.right() - self.preview_win.width()))
         self.preview_win.move(x, y)
+        self._last_hud = self.hud.pos()
+        self._last_prev = self.preview_win.pos()
+
+    def _on_hud_moved(self) -> None:
+        if self._pair_moving or not self.preview_win.isVisible():
+            self._last_hud = self.hud.pos()
+            return
+        self._pair_moving = True
+        self.preview_win.move(self.preview_win.pos() + (self.hud.pos() - self._last_hud))
+        self._pair_moving = False
+        self._last_hud = self.hud.pos()
+
+    def _on_preview_moved(self) -> None:
+        if self._pair_moving or not self.preview_win.isVisible():
+            self._last_prev = self.preview_win.pos()
+            return
+        self._pair_moving = True
+        self.hud.move(self.hud.pos() + (self.preview_win.pos() - self._last_prev))
+        self._pair_moving = False
+        self._last_prev = self.preview_win.pos()
 
     def _cal_step(self, sig) -> None:
         from osa import diag
