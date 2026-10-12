@@ -6,13 +6,11 @@ A local, private posture guard for people with forward head posture and thoracic
 
 ## Download
 
-Grab the zip for your system from [**Releases**](https://github.com/msb090219/osa/releases), unzip, and double-click **`osa.exe`** (Windows) or **`OSA.app`** (macOS, Apple Silicon). No Python or installs needed; the posture models ship inside the zip. Intel Macs aren't packaged — run from source (below).
+**Windows:** grab `osa-win64.zip` from [**Releases**](https://github.com/msb090219/osa/releases), unzip, and double-click **`osa.exe`**. No Python or installs needed; the posture models ship inside the zip. After unzipping, right-click `osa.exe` → Properties → tick **Unblock** to stop the "downloaded from the internet" prompt on every launch (the binaries are unsigned).
 
-First-run heads-ups, because the binaries are unsigned (code-signing certificates cost real money and aren't in v1):
+**macOS:** not packaged right now — known first-run UI issues are being fixed. Brave souls can run from source (below); Intel Macs were never packaged.
 
-- **Windows** may show SmartScreen: click *More info* → *Run anyway*.
-- **macOS** Gatekeeper: right-click `OSA.app` → *Open* → *Open* the first time.
-- Both systems will ask for **camera permission** — that's the whole app; grant it.
+First-run heads-ups: Windows may show SmartScreen (*More info* → *Run anyway*), and the OS will ask for **camera permission** — that's the whole app; grant it.
 
 ## Why
 

@@ -15,8 +15,8 @@ jobs:
         include:
           - os: windows-latest
             asset: osa-win64.zip
-          - os: macos-14
-            asset: osa-macos-arm64.zip
+          # macOS packaging paused until its first-run UI issues are fixed
+          # and human-verified (tracked for a future release)
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
