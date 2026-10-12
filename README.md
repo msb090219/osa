@@ -6,7 +6,7 @@ A local, private posture guard for people with forward head posture and thoracic
 
 ## Download
 
-Grab the zip for your system from [**Releases**](https://github.com/msb090219/osa/releases), unzip, and double-click **`osa.exe`** (Windows) or **`OSA.app`** (macOS — Apple Silicon and Intel builds available). No Python or installs needed; the posture models ship inside the zip.
+Grab the zip for your system from [**Releases**](https://github.com/msb090219/osa/releases), unzip, and double-click **`osa.exe`** (Windows) or **`OSA.app`** (macOS, Apple Silicon). No Python or installs needed; the posture models ship inside the zip. Intel Macs aren't packaged — run from source (below).
 
 First-run heads-ups, because the binaries are unsigned (code-signing certificates cost real money and aren't in v1):
 

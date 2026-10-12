@@ -15,8 +15,6 @@ jobs:
         include:
           - os: windows-latest
             asset: osa-win64.zip
-          - os: macos-13
-            asset: osa-macos-intel.zip
           - os: macos-14
             asset: osa-macos-arm64.zip
     runs-on: ${{ matrix.os }}
