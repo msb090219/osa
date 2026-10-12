@@ -23,7 +23,7 @@ Hours of poking your head toward a laptop screen is exactly what reinforces a st
    - **Sit normal** (~8 s) — everyday posture; this becomes your scoring anchor: **green = at least as good as your normal sitting**.
    - **Hunch** (~6 s) — deliberately relax into your slouch; this sets where **red** is, per signal, for your body on your camera. Users whose habit is already partway hunched (common with FHP) get honest scores instead of a green slouch.
    - **Verify** (~12 s) — sit normal while OSA scores itself against its fresh baseline and auto-tunes until your normal reads green. Calibration only succeeds if it can prove your normal posture scores good and your hunch scores red.
-2. **Live**: a slim always-on-top HUD shows a 10-segment meter — green (good), amber (drifting), red (hunched). The tray dot mirrors it.
+2. **Live**: a slim always-on-top HUD shows a 10-segment meter — green (good), amber (drifting), red (hunched). The tray dot mirrors it. **Left-click the tray icon** for the menu (right-click works too), and **double-click the HUD** to open Settings.
 3. **Nudges**: hunch long enough (45 s by default) and you get a toast; stay hunched and it politely re-nags. Sit well for 10 s and it acknowledges.
 4. **Life happens**: leave the desk and it stops scoring (grey). Pause it for meetings. Recalibrate whenever your chair/monitor setup changes.
 5. **Stretch breaks**: every 40 min (configurable) it suggests one of five exercises aimed at FHP/hunch — chin tucks, thoracic extensions, wall angels, doorway pec stretch, scapular squeezes. Edit the list in `%APPDATA%\OSA\config.json`.

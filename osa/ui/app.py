@@ -35,10 +35,30 @@ except ImportError:  # non-Windows dev machines
         pass
 
 _CAL_TOASTS = {
-    "enter_tall": ("SIT TALL", "Best posture, chin gently tucked — hold still ~10 s."),
-    "enter_normal": ("Sit NORMALLY", "Everyday posture — not tall, not slouched. ~8 s."),
-    "enter_hunch": ("Now HUNCH", "Deliberately relax into your typical slouch. ~6 s."),
-    "enter_verify": ("Final check", "Sit normal while OSA verifies its tuning (~12 s)."),
+    "enter_tall": (
+        "SIT TALL",
+        "Spine long · shoulders back & down · chin gently tucked. Hold ~10 s.",
+    ),
+    "enter_normal": (
+        "Sit NORMALLY",
+        "Exactly how you usually sit — don't correct anything. ~8 s.",
+    ),
+    "enter_hunch": (
+        "HUNCH",
+        "Chin forward · round your back · full end-of-day slouch. ~6 s.",
+    ),
+    "enter_verify": (
+        "SIT NORMALLY AGAIN",
+        "I'm checking my own math — relax to your everyday posture (~12 s).",
+    ),
+}
+
+_CAL_INSTRUCTIONS = {
+    "setup": ("GET COMFORTABLE", "Sit facing the camera · look at the CENTER of your screen"),
+    "enter_tall": ("SIT TALL", "Spine long · shoulders back & down · chin gently tucked"),
+    "enter_normal": ("SIT NORMALLY", "Exactly how you usually sit · don't correct anything"),
+    "enter_hunch": ("HUNCH", "Chin forward · round your back · full end-of-day slouch"),
+    "enter_verify": ("SIT NORMALLY AGAIN", "I'm checking my own math"),
 }
 
 
@@ -81,6 +101,7 @@ class OsaApp(QObject):
         self.tray.quit_requested.connect(self._on_quit)
         self.tray.continue_anyway.connect(self._on_continue_anyway)
         self.tray.sync_hud_action(self.hud.isVisible())
+        self.hud.doubleClicked.connect(self._open_settings)
 
         self.worker = VisionWorker(
             self.models_dir, self.cfg["camera_index"], self.cfg["fps"]
@@ -153,6 +174,7 @@ class OsaApp(QObject):
         self._cal = CalibrationSession()
         self.tray.show_continue(False)
         self.worker.preview_enabled = True
+        self.preview_win.set_instruction(*_CAL_INSTRUCTIONS["setup"])
         self.preview_win.set_caption("setup check…")
         self.preview_win.show()
         self.preview_win.raise_()
@@ -181,6 +203,7 @@ class OsaApp(QObject):
         for ev in res.events:
             if ev in _CAL_TOASTS:
                 self.tray.toast(*_CAL_TOASTS[ev])
+                self.preview_win.set_instruction(*_CAL_INSTRUCTIONS[ev])
                 if ev == "enter_tall":
                     self.tray.show_continue(False)
             elif ev == "setup_stuck":
@@ -199,6 +222,7 @@ class OsaApp(QObject):
             self._cal = None
             self.tray.show_continue(False)
             self.worker.preview_enabled = False
+            self.preview_win.set_instruction("", "")
             self.preview_win.hide()
             if self.baseline is None:
                 self._sync_uncalibrated_ui()

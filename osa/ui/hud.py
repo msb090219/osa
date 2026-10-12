@@ -5,7 +5,7 @@ Draggable anywhere; the controller persists its position between runs.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
@@ -41,6 +41,8 @@ class Hud(QWidget):
         self.text = "calibrate me"
         self._drag_off = QPoint()
 
+    doubleClicked = Signal()
+
     # ------------------------------------------------------------------
     def set_live(self, level: float, text: str) -> None:
         self.mode, self.level, self.text = "live", level, text
@@ -62,6 +64,9 @@ class Hud(QWidget):
 
     def mouseReleaseEvent(self, _):
         self._drag_off = QPoint()
+
+    def mouseDoubleClickEvent(self, _):
+        self.doubleClicked.emit()
 
     # ------------------------------------------------------------------
     def paintEvent(self, _):

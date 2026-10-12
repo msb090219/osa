@@ -131,7 +131,7 @@ class CalibrationSession:
             return StepResult(self.phase)
         self.degraded = True
         self._enter("tall", now)
-        return StepResult("tall", "tall 0s", events=["enter_tall"])
+        return StepResult("tall", "TALL 0s", events=["enter_tall"])
 
     # ------------------------------------------------------------------
     def _enter(self, phase: str, now: float) -> None:
@@ -188,7 +188,7 @@ class CalibrationSession:
             if now - self._streak_t0 >= SETUP_PASS_S:
                 self._enter("tall", now)
                 return StepResult(
-                    "tall", "tall 0s",
+                    "tall", "TALL 0s",
                     events=["enter_tall", "setup_ok"],
                 )
         else:
@@ -224,10 +224,10 @@ class CalibrationSession:
                 return self._fail("too_few", "couldn't get a clean read — hold steadier")
             self._tall = filtered
             self._enter("normal", now)
-            return StepResult("normal", "normal 0s", events=["enter_normal"])
+            return StepResult("normal", "NORMAL 0s", events=["enter_normal"])
 
         hint = "hold steady…" if ratio > REJECT_RATIO_MAX else None
-        return StepResult("tall", f"tall {min(int(elapsed), int(TALL_S))}/{int(TALL_S)}s", hint)
+        return StepResult("tall", f"TALL {min(int(elapsed), int(TALL_S))}/{int(TALL_S)}s", hint)
 
     # --- phase 2: normal ----------------------------------------------------
     def _normal_step(self, sig: FrameSignals, now: float) -> StepResult:
@@ -238,8 +238,8 @@ class CalibrationSession:
             if min(len(v) for v in self._normal.values()) < MIN_CLEAN:
                 return self._fail("too_few", "couldn't see you enough")
             self._enter("hunch", now)
-            return StepResult("hunch", "hunch 0s", events=["enter_hunch"])
-        return StepResult("normal", f"normal {int(now - self._t0)}/{int(NORMAL_S)}s")
+            return StepResult("hunch", "HUNCH 0s", events=["enter_hunch"])
+        return StepResult("normal", f"NORMAL {int(now - self._t0)}/{int(NORMAL_S)}s")
 
     # --- phase 3: hunch + candidate build ------------------------------------
     def _hunch_step(self, sig: FrameSignals, now: float) -> StepResult:
@@ -247,7 +247,7 @@ class CalibrationSession:
             for k in SIGNALS:
                 self._hunch[k].append(getattr(sig, k))
         if now - self._t0 < HUNCH_S:
-            return StepResult("hunch", f"hunch {int(now - self._t0)}/{int(HUNCH_S)}s")
+            return StepResult("hunch", f"HUNCH {int(now - self._t0)}/{int(HUNCH_S)}s")
 
         if min(len(v) for v in self._hunch.values()) < MIN_CLEAN:
             return self._fail("too_few", "couldn't see you enough")
@@ -297,7 +297,7 @@ class CalibrationSession:
             },
         )
         self._enter("verify", now)
-        return StepResult("verify", "verify 0s", events=["enter_verify"])
+        return StepResult("verify", "CHECK 0s", events=["enter_verify"])
 
     # --- phase 4: verify + auto-tune -----------------------------------------
     def _verify_step(self, sig: FrameSignals, now: float) -> StepResult:
@@ -307,7 +307,7 @@ class CalibrationSession:
             if dev is not None:
                 self._verify_devs.append(dev)
         if now - self._t0 < VERIFY_S:
-            return StepResult("verify", f"verify {int(now - self._t0)}/{int(VERIFY_S)}s")
+            return StepResult("verify", f"CHECK {int(now - self._t0)}/{int(VERIFY_S)}s")
 
         if not self._verify_devs:
             return self._fail("too_few", "couldn't see you enough")

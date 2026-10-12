@@ -30,6 +30,7 @@ class PreviewWindow(QWidget):
         self._img_size = (0, 0)
         self._marks: tuple | None = None
         self._caption = "starting…"
+        self._instruction = ("", "")  # (title, detail) — the position to hold
         self._drag_off = QPoint()
 
     # ------------------------------------------------------------------
@@ -41,6 +42,10 @@ class PreviewWindow(QWidget):
 
     def set_caption(self, text: str) -> None:
         self._caption = text
+        self.update()
+
+    def set_instruction(self, title: str, detail: str = "") -> None:
+        self._instruction = (title, detail)
         self.update()
 
     # ------------------------------------------------------------------
@@ -101,6 +106,24 @@ class PreviewWindow(QWidget):
                     p.setBrush(QColor(250, 204, 21, 230))
                     p.drawEllipse(int(pt[0]) - 4, int(pt[1]) - 4, 8, 8)
             p.restore()
+
+        # position instruction banner — the loudest thing on the window
+        title, detail = self._instruction
+        if title:
+            banner_h = 58 if detail else 38
+            banner = QRect(_PAD, _PAD, w - 2 * _PAD, banner_h)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(10, 12, 16, 208))
+            p.drawRoundedRect(banner, 8, 8)
+            p.setPen(QColor(255, 255, 255))
+            p.setFont(QFont("Segoe UI", 15, QFont.Bold))
+            p.drawText(banner.adjusted(0, 4, 0, 0), Qt.AlignHCenter | Qt.AlignTop, title)
+            if detail:
+                p.setPen(QColor(209, 213, 219))
+                p.setFont(QFont("Segoe UI", 9))
+                p.drawText(
+                    banner.adjusted(10, 32, -10, 0), Qt.AlignHCenter | Qt.AlignTop, detail
+                )
 
         # caption strip
         p.setPen(QColor(235, 238, 242))

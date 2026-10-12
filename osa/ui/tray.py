@@ -1,8 +1,12 @@
-"""System tray icon + menu. The icon is a plain colored dot, drawn in code."""
+"""System tray icon + menu. The icon is a plain colored dot, drawn in code.
+
+Left-click opens the menu at the cursor (Windows only does that on
+right-click by default); right-click still works too.
+"""
 from __future__ import annotations
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QAction, QColor, QCursor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
 STATE_COLORS = {
@@ -77,9 +81,14 @@ class Tray(QObject):
         self.settings_action.triggered.connect(self.settings_requested)
         self.quit_action.triggered.connect(self.quit_requested)
         self.icon.setContextMenu(self.menu)
+        self.icon.activated.connect(self._on_activated)
 
         self._paused = False
         self._hud_visible = True
+
+    def _on_activated(self, reason) -> None:
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:  # left click
+            self.menu.popup(QCursor.pos())
 
     # ------------------------------------------------------------------
     def _on_pause(self):
