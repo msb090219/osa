@@ -88,6 +88,7 @@ class OsaApp(QObject):
         hud_cfg = self.cfg["hud"]
         if hud_cfg.get("x") is not None and hud_cfg.get("y") is not None:
             self.hud.move(hud_cfg["x"], hud_cfg["y"])
+        self._rescue_offscreen_hud()
         self.hud.setVisible(hud_cfg.get("visible", True))
 
         self.tray = Tray()
@@ -142,6 +143,28 @@ class OsaApp(QObject):
             "bad": 0,
             "dev_sum": 0.0,
         }
+
+    def _rescue_offscreen_hud(self) -> None:
+        """If the saved HUD position isn't on any connected screen (e.g. a
+        monitor was unplugged since last run), bring it home."""
+        from PySide6.QtGui import QGuiApplication
+
+        from osa import diag
+
+        screens = [s.availableGeometry() for s in QGuiApplication.screens()]
+        if not screens:
+            return
+        if any(self.hud.frameGeometry().intersects(g) for g in screens):
+            return
+        prim = QGuiApplication.primaryScreen().availableGeometry()
+        self.hud.move(
+            max(prim.left(), prim.right() - self.hud.width() - 24),
+            prim.top() + 80,
+        )
+        diag.log(
+            f"hud: saved position off-screen "
+            f"({self.cfg['hud'].get('x')},{self.cfg['hud'].get('y')}) — moved on-screen"
+        )
 
     # ------------------------------------------------------------------
     def start(self) -> None:
