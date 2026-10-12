@@ -54,6 +54,8 @@ python -m venv .venv
 
 **macOS from source:** works with the same steps. The first time the app opens the camera, macOS will ask *"Terminal would like to access the camera"* — click **Allow**. Two Windows-only conveniences don't apply: the alert chime falls back to the system beep, and the "start with the OS" setting is hidden (add OSA to Login Items manually if you want it to autostart).
 
+**Troubleshooting:** the HUD bar has a right-click menu with everything the tray menu has, so the app is always controllable even if no tray icon appears. If something misbehaves, the run log at `%APPDATA%\OSA\osa.log` (Windows) or `~/Library/Application Support/OSA/osa.log` (macOS) is the file to attach to a bug report.
+
 ## How it works
 
 Three scale-invariant signals, all normalized by your inter-shoulder width:

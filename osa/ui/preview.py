@@ -26,6 +26,7 @@ class PreviewWindow(QWidget):
             Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow, True)
         self.setFixedSize(320, 288)  # HUD is 320 wide; 4:3 video + caption
 
         self._img: QImage | None = None

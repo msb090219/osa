@@ -12,12 +12,14 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
+from osa import diag
 from osa.ui.app import OsaApp
 
 ROOT = Path(__file__).resolve().parent
 
 
 def main() -> int:
+    diag.start()  # osa.log — overwritten each run, next to the config file
     app = QApplication(sys.argv)
     app.setApplicationName("OSA")
     app.setQuitOnLastWindowClosed(False)  # tray app — HUD is not a main window
@@ -27,6 +29,8 @@ def main() -> int:
 
     rc = app.exec()
     osa.shutdown()
+    diag.log(f"app: exit {rc}")
+    diag.close()
     return rc
 
 

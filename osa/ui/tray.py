@@ -6,7 +6,7 @@ right-click by default); right-click still works too.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, QPointF, Qt, Signal
+from PySide6.QtCore import QObject, QPointF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -92,7 +92,9 @@ class Tray(QObject):
         self.icon = QSystemTrayIcon(self)
         self.icon.setIcon(spine_icon(STATE_COLORS["uncalibrated"]))
         self.icon.setToolTip("OSA — not calibrated yet")
-        self.icon.show()
+        # NOTE: .show() is deferred into the event loop via show_when_ready()
+        # — status items created before the macOS event loop runs are the
+        # classic "icon never appears" failure.
 
         self.menu = QMenu()
         self.status_action = QAction("status: starting…", self.menu)
@@ -133,6 +135,27 @@ class Tray(QObject):
     def _on_activated(self, reason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.Trigger:  # left click
             self.menu.popup(QCursor.pos())
+
+    # ------------------------------------------------------------------
+    def show_when_ready(self) -> None:
+        """Call from the running event loop (e.g. QTimer.singleShot(0, …))."""
+        from osa import diag
+
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self.icon.show()
+            diag.log("tray: shown (system tray available)")
+        else:
+            diag.log("tray: unavailable — retrying once in 3s")
+            QTimer.singleShot(3000, self._retry_show)
+
+    def _retry_show(self) -> None:
+        from osa import diag
+
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self.icon.show()
+            diag.log("tray: shown on retry")
+        else:
+            diag.log("tray: unavailable after retry — HUD menu is the fallback")
 
     # ------------------------------------------------------------------
     def _on_pause(self):

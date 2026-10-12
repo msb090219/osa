@@ -98,7 +98,10 @@ class OsaApp(QObject):
         self.tray.quit_requested.connect(self._on_quit)
         self.tray.continue_anyway.connect(self._on_continue_anyway)
         self.tray.sync_hud_action(self.hud.isVisible())
-        self.hud.doubleClicked.connect(self._open_settings)
+        self.hud.doubleClicked.connect(self._on_hud_double_clicked)
+        # the HUD context menu mirrors the tray menu, so the app stays
+        # fully controllable even if a platform never shows the tray icon
+        self.hud.set_context_menu(self.tray.menu)
 
         self.worker = VisionWorker(
             self.models_dir, self.cfg["camera_index"], self.cfg["fps"]
@@ -142,6 +145,10 @@ class OsaApp(QObject):
 
     # ------------------------------------------------------------------
     def start(self) -> None:
+        from osa import diag
+
+        diag.log(f"app: starting (baseline={'yes' if self.baseline else 'no'})")
+        QTimer.singleShot(0, self.tray.show_when_ready)
         if self.baseline is None:
             self.tray.toast(
                 "Welcome to OSA",
@@ -149,6 +156,12 @@ class OsaApp(QObject):
             )
         self.worker.start()
         self.reminder_timer.start()
+
+    def _on_hud_double_clicked(self) -> None:
+        if self.baseline is None and self._cal is None:
+            self.start_calibration()
+        else:
+            self._open_settings()
 
     def shutdown(self) -> None:
         if self._quitting:
@@ -207,8 +220,12 @@ class OsaApp(QObject):
         self.preview_win.move(x, y)
 
     def _cal_step(self, sig) -> None:
+        from osa import diag
+
         res = self._cal.feed(sig, time.monotonic())
         self.hud.set_status("calibrating", res.progress or res.phase)
+        for ev in res.events:
+            diag.log(f"cal: {ev}")
         caption = res.progress or res.phase
         if res.hint:
             caption = f"{caption} · {res.hint}"
@@ -367,6 +384,9 @@ class OsaApp(QObject):
         config_mod.save(self.cfg)
 
     def _on_cam_error(self) -> None:
+        from osa import diag
+
+        diag.log("camera: error")
         if self.machine.state is not State.PAUSED:
             events = self.machine.camera_failed()
             self._render(self.machine.state, None)
@@ -425,5 +445,5 @@ class OsaApp(QObject):
         self.worker.start()
 
     def _sync_uncalibrated_ui(self) -> None:
-        self.hud.set_status("uncalibrated", "calibrate me")
+        self.hud.set_status("uncalibrated", "double-click = calibrate")
         self.tray.set_state("uncalibrated", "")

@@ -34,15 +34,26 @@ class Hud(QWidget):
             Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
+        # macOS hides tool windows when the app loses focus — keep the HUD
+        # visible regardless (no-op on other platforms)
+        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow, True)
         self.setFixedSize(320, 44)
 
         self.level: float | None = None
         self.mode = "uncalibrated"
         self.text = "calibrate me"
         self._drag_off = QPoint()
+        self._menu = None  # optional context menu (the tray menu, reused)
 
     doubleClicked = Signal()
     moved = Signal()  # fired on every move so docked windows can follow
+
+    def set_context_menu(self, menu) -> None:
+        self._menu = menu
+
+    def contextMenuEvent(self, ev):
+        if self._menu is not None:
+            self._menu.popup(ev.globalPos())
 
     def moveEvent(self, _):
         self.moved.emit()

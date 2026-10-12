@@ -137,7 +137,9 @@ class VisionWorker(QThread):
                     lm.close()
                     lm = None
                 if not in_error:
-                    print(f"[osa] camera problem: {e} — retrying every few seconds")
+                    from osa import diag
+
+                    diag.log(f"camera problem: {e} — retrying every few seconds")
                     self.cam_error.emit()
                     in_error = True
                 self.msleep(_RETRY_MS)
