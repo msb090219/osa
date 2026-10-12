@@ -55,7 +55,7 @@ def test_unscorable_frame_returns_none():
 def test_dict_roundtrip_includes_report():
     b = make()
     d = b.to_dict()
-    assert d["version"] == BASELINE_VERSION == 3
+    assert d["version"] == BASELINE_VERSION == 4
     b2 = Baseline.from_dict(d)
     assert b2.report == b.report
     probe = fs(pitch=20.0, sink=0.5, lean=0.6)
@@ -64,6 +64,6 @@ def test_dict_roundtrip_includes_report():
 
 def test_stale_version_rejected():
     d = make().to_dict()
-    d["version"] = 2
+    d["version"] = 3
     with pytest.raises(ValueError):
         Baseline.from_dict(d)

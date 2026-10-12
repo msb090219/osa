@@ -43,6 +43,14 @@ class Landmarkers:
 
     def signals(self, frame_rgb: np.ndarray, ts_ms: int) -> FrameSignals:
         """Run both landmarkers on one RGB frame. ts_ms must strictly increase."""
+        sig, _ = self.signals_with_overlay(frame_rgb, ts_ms)
+        return sig
+
+    def signals_with_overlay(
+        self, frame_rgb: np.ndarray, ts_ms: int
+    ) -> tuple[FrameSignals, tuple | None]:
+        """Same as signals(), plus pixel coords of shoulders/ears for the
+        calibration preview: ((ls), (rs), (le), (re)) or None without a pose."""
         img = MpImage(image_format=ImageFormat, data=frame_rgb)
         pose_res = self._pose.detect_for_video(img, ts_ms)
         face_res = self._face.detect_for_video(img, ts_ms)
@@ -54,7 +62,18 @@ class Landmarkers:
             if face_res.facial_transformation_matrixes
             else None
         )
-        return metrics.compute_signals(pose_lms, face_lms, face_mx)
+        sig = metrics.compute_signals(pose_lms, face_lms, face_mx)
+
+        overlay = None
+        if pose_lms is not None:
+            h, w = frame_rgb.shape[:2]
+
+            def px(idx: int) -> tuple[int, int]:
+                lm = pose_lms[idx]
+                return int(lm.x * w), int(lm.y * h)
+
+            overlay = (px(11), px(12), px(7), px(8))
+        return sig, overlay
 
     def close(self) -> None:
         self._pose.close()

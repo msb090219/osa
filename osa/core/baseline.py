@@ -23,13 +23,18 @@ SIGNALS = ("head_pitch", "head_sink", "lean_in")
 TOL_FLOOR = {"head_pitch": 8.0, "head_sink": 0.09, "lean_in": 0.03}
 SIGMA_MULT = 2.5
 
+# Minimum tolerances when scoring is anchored at the user's *normal* pose
+# (see core.calibration) — tighter than TOL_FLOOR because the anchor itself
+# already absorbs everyday-posture variation.
+FLOOR_MIN = {"head_pitch": 4.0, "head_sink": 0.045, "lean_in": 0.015}
+
 # If the hunch sample barely moves a signal, the direction is unreliable —
 # exclude that signal from scoring rather than guess.
 HUNCH_MIN_DELTA = {"head_pitch": 2.0, "head_sink": 0.03, "lean_in": 0.02}
 
 # If the tolerance/baseline format changes, bump this so stale calibrations
 # are rejected instead of silently mis-scoring.
-BASELINE_VERSION = 3
+BASELINE_VERSION = 4
 
 
 @dataclass

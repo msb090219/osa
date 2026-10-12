@@ -22,6 +22,7 @@ from osa.core.states import (
 from osa.storage.db import PostureLog
 from osa.vision.worker import VisionWorker
 from .hud import Hud
+from .preview import PreviewWindow
 from .tray import Tray
 
 try:
@@ -88,6 +89,10 @@ class OsaApp(QObject):
         self.worker.cam_error.connect(self._on_cam_error)
         self.worker.cam_recovered.connect(self._on_cam_recovered)
 
+        # calibration camera preview (hidden until a calibration runs)
+        self.preview_win = PreviewWindow()
+        self.worker.preview.connect(self.preview_win.update_frame)
+
         # calibration bookkeeping
         self._cal: CalibrationSession | None = None
 
@@ -147,6 +152,10 @@ class OsaApp(QObject):
     def start_calibration(self) -> None:
         self._cal = CalibrationSession()
         self.tray.show_continue(False)
+        self.worker.preview_enabled = True
+        self.preview_win.set_caption("setup check…")
+        self.preview_win.show()
+        self.preview_win.raise_()
         self.tray.toast(
             "Setup check",
             "Sit facing the camera and look at the CENTER of your screen…",
@@ -165,6 +174,10 @@ class OsaApp(QObject):
     def _cal_step(self, sig) -> None:
         res = self._cal.feed(sig, time.monotonic())
         self.hud.set_status("calibrating", res.progress or res.phase)
+        caption = res.progress or res.phase
+        if res.hint:
+            caption = f"{caption} · {res.hint}"
+        self.preview_win.set_caption(caption)
         for ev in res.events:
             if ev in _CAL_TOASTS:
                 self.tray.toast(*_CAL_TOASTS[ev])
@@ -185,6 +198,8 @@ class OsaApp(QObject):
         if res.phase in ("done", "failed"):
             self._cal = None
             self.tray.show_continue(False)
+            self.worker.preview_enabled = False
+            self.preview_win.hide()
             if self.baseline is None:
                 self._sync_uncalibrated_ui()
 
@@ -366,6 +381,7 @@ class OsaApp(QObject):
         self.worker.frame.connect(self._on_frame)
         self.worker.cam_error.connect(self._on_cam_error)
         self.worker.cam_recovered.connect(self._on_cam_recovered)
+        self.worker.preview.connect(self.preview_win.update_frame)
         self.worker.start()
 
     def _sync_uncalibrated_ui(self) -> None:

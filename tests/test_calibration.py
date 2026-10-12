@@ -149,7 +149,7 @@ def test_tall_too_few_clean_frames_fails():
 
 # --- normal + hunch + candidate ---------------------------------------------
 
-def test_normal_widening_capped_and_tall_baseline():
+def test_scoring_anchors_at_normal_with_hunch_as_red():
     s, t = happy_session()
     t, res = run(s, frame(sink=0.66), 9.0, t)  # normal sink 0.06 below tall
     assert "enter_hunch" in events(res)
@@ -160,8 +160,24 @@ def test_normal_widening_capped_and_tall_baseline():
     assert b.signals["head_sink"].bad_dir == -1
     assert b.signals["lean_in"].bad_dir == +1
     assert b.signals["head_pitch"].bad_dir == +1
-    # widening: floor 0.09 + min(0.5*0.06, 2*0.09) = 0.12
-    assert math.isclose(b.signals["head_sink"].tol, 0.12, abs_tol=1e-9)
+    # anchored at NORMAL; hunch sits at dev ≈ HUNCH_DEV (1.75)
+    assert math.isclose(b.signals["head_sink"].value, 0.66, abs_tol=1e-9)
+    assert math.isclose(
+        b.signals["head_sink"].tol, abs(0.55 - 0.66) / 1.75, abs_tol=1e-9
+    )
+    assert b.report["anchor"]["head_sink"] == "normal"
+
+
+def test_signal_falls_back_to_tall_anchor_when_hunch_equals_normal():
+    s, t = happy_session()
+    # normal sink 0.66, hunch sink also 0.66 (habit ≈ slouch on this signal)
+    t, res = run(s, frame(sink=0.66), 9.0, t)
+    t, res = run(s, frame(pitch=18.0, sink=0.66, lean=0.60), 7.0, t)
+    assert "enter_verify" in events(res)
+    b = s._candidate
+    assert b.report["anchor"]["head_sink"] == "tall"
+    assert math.isclose(b.signals["head_sink"].value, 0.72, abs_tol=1e-9)
+    assert math.isclose(b.signals["head_sink"].tol, 0.09, abs_tol=1e-9)  # TOL_FLOOR
 
 
 def test_flat_hunch_rejected():
@@ -192,19 +208,23 @@ def test_verify_passes_without_tuning_when_normal_is_green():
 def test_verify_auto_tunes_when_normal_reads_hunched():
     s, t = happy_session()
     t = _to_verify(s, t)
-    # sink 1.2×tol below baseline → median dev 1.2 → tune = 1.2/0.6 = 2.0
-    t, res = run(s, frame(sink=0.72 - 1.2 * 0.09), 13.0, t)
+    tol = s._candidate.signals["head_sink"].tol
+    val = s._candidate.signals["head_sink"].value
+    # sit 0.9×tol beyond the anchor during verify → tune caps at 2.5
+    t, res = run(s, frame(sink=val - 0.9 * tol), 13.0, t)
     assert "calibrated" in events(res)
     b = res[-1].baseline
-    assert b.report["tune"] == 2.0
-    assert math.isclose(b.signals["head_sink"].tol, 0.18, abs_tol=1e-9)
+    assert b.report["tune"] == 2.5
+    assert math.isclose(b.signals["head_sink"].tol, 2.5 * tol, abs_tol=1e-9)
 
 
 def test_verify_rejects_when_unfixable():
     s, t = happy_session()
     t = _to_verify(s, t)
-    # dev 3.5 → capped tune 2.5 → still 1.4 > 1.0 → reject
-    t, res = run(s, frame(sink=0.72 - 3.5 * 0.09), 13.0, t)
+    tol = s._candidate.signals["head_sink"].tol
+    val = s._candidate.signals["head_sink"].value
+    # dev 6 → capped tune 2.5 → still 2.4 > 1.0 → reject
+    t, res = run(s, frame(sink=val - 6.0 * tol), 13.0, t)
     assert "failed:verify" in events(res)
     assert s.phase == "failed"
 
@@ -221,5 +241,8 @@ def test_full_happy_path_end_to_end():
     assert b is not None
     assert b.report["setup"]["level"] and b.report["setup"]["gaze"]
     assert b.report["degraded"] is False
-    # normal (0.06 below tall, widened tol 0.12) → dev 0.5, no tuning needed
+    assert b.report["anchor"]["head_sink"] == "normal"
+    # sitting at the normal anchor → dev 0 → no tuning needed
+    assert b.deviation(frame(sink=0.66)) == 0.0
+    assert b.deviation(frame(pitch=18.0, sink=0.55, lean=0.60)) > 1.5  # hunch is red
     assert b.report["tune"] == 1.0

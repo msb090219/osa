@@ -17,12 +17,12 @@ Hours of poking your head toward a laptop screen is exactly what reinforces a st
 
 ## How to use
 
-1. **Calibrate** (tray menu → *Calibrate…*) — a guided ~50 s flow:
+1. **Calibrate** (tray menu → *Calibrate…*) — a guided ~50 s flow with a live **camera preview** (selfie view with the shoulder line and ear marks OSA is measuring):
    - **Setup check** — OSA first validates your *camera*: level (not tilted), height (you shouldn't be craning up or tilting your chin down at it), framing (enough torso visible), and lighting. The HUD shows which check is failing and how to fix it.
    - **Sit tall** (~10 s) — your best posture, chin gently tucked.
-   - **Sit normal** (~8 s) — everyday posture; OSA widens tolerances so your normal doesn't live in the amber zone.
-   - **Hunch** (~6 s) — deliberately relax into your slouch; this teaches OSA which direction is bad *for your body on your camera*.
-   - **Verify** (~12 s) — sit normal while OSA scores itself against its fresh baseline and auto-tunes until your normal reads green. Calibration only succeeds if it can prove your normal posture scores good.
+   - **Sit normal** (~8 s) — everyday posture; this becomes your scoring anchor: **green = at least as good as your normal sitting**.
+   - **Hunch** (~6 s) — deliberately relax into your slouch; this sets where **red** is, per signal, for your body on your camera. Users whose habit is already partway hunched (common with FHP) get honest scores instead of a green slouch.
+   - **Verify** (~12 s) — sit normal while OSA scores itself against its fresh baseline and auto-tunes until your normal reads green. Calibration only succeeds if it can prove your normal posture scores good and your hunch scores red.
 2. **Live**: a slim always-on-top HUD shows a 10-segment meter — green (good), amber (drifting), red (hunched). The tray dot mirrors it.
 3. **Nudges**: hunch long enough (45 s by default) and you get a toast; stay hunched and it politely re-nags. Sit well for 10 s and it acknowledges.
 4. **Life happens**: leave the desk and it stops scoring (grey). Pause it for meetings. Recalibrate whenever your chair/monitor setup changes.

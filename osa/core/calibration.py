@@ -11,9 +11,11 @@ Design notes:
 - Captures gate on yaw/roll so half-turned frames never enter a sample,
   and reject per-signal outliers with a MAD filter so one shrug doesn't
   skew the median.
-- The "normal" phase measures everyday posture and widens tolerances —
-  a user whose normal sits far below their tall pose shouldn't live in
-  the amber zone.
+- The "normal" phase measures everyday posture and becomes the scoring
+  ANCHOR: green means "at least as good as your normal sitting", and the
+  hunch sample sets the distance to red. This keeps users whose habit is
+  already partway hunched (very common with FHP) from being told their
+  slouch is good — and users with a mild hunch from being nagged at normal.
 - The verify phase scores the fresh baseline against the user's normal
   sitting and self-tunes until normal reads green. This is the "prove it
   before you use it" step.
@@ -25,6 +27,7 @@ from dataclasses import dataclass, field
 
 from ..vision.metrics import FrameSignals
 from .baseline import (
+    FLOOR_MIN,
     HUNCH_MIN_DELTA,
     SIGMA_MULT,
     SIGNALS,
@@ -57,10 +60,13 @@ MIN_CLEAN = 3  # per-signal minimum after outlier filtering
 MAD_ABS = {"head_pitch": 1.5, "head_sink": 0.01, "lean_in": 0.005}
 
 # --- verify phase ---------------------------------------------------------
-VERIFY_TRIGGER = 0.8  # median deviation above this → auto-tune
-VERIFY_TARGET = 0.6  # tune until normal reads ~this
+VERIFY_TRIGGER = 0.5  # median deviation above this → auto-tune
+VERIFY_TARGET = 0.3  # tune until normal reads ~this
 TUNE_CAP = 2.5
 VERIFY_FAIL = 1.0  # still above this after tuning → calibration rejected
+
+# when anchored at normal, "red" (dev 1.75) sits at the measured hunch
+HUNCH_DEV = 1.75
 
 CHECK_ORDER = ("present", "level", "gaze", "framing", "light")
 
@@ -247,21 +253,32 @@ class CalibrationSession:
             return self._fail("too_few", "couldn't see you enough")
 
         signals: dict[str, SignalCal] = {}
+        anchors: dict[str, str] = {}
         for k in SIGNALS:
-            value = statistics.median(self._tall[k])
-            tol = TOL_FLOOR[k]
-            if len(self._tall[k]) >= 2:
-                tol = max(tol, SIGMA_MULT * statistics.stdev(self._tall[k]))
-            # widen by half the tall→normal distance, capped at 2× the floor
-            normal_med = statistics.median(self._normal[k])
-            tol += min(0.5 * abs(normal_med - value), 2.0 * TOL_FLOOR[k])
+            t_med = statistics.median(self._tall[k])
+            n_med = statistics.median(self._normal[k])
+            h_med = statistics.median(self._hunch[k])
+            sigma = statistics.stdev(self._tall[k]) if len(self._tall[k]) >= 2 else 0.0
+            delta = h_med - t_med
 
-            hunch_med = statistics.median(self._hunch[k])
-            delta = hunch_med - value
             if abs(delta) < HUNCH_MIN_DELTA[k]:
-                bad_dir = 0
-            else:
+                # hunch looked like tall — no direction to learn
+                bad_dir, value, tol = 0, t_med, TOL_FLOOR[k]
+                anchors[k] = "excluded"
+            elif abs(h_med - n_med) >= HUNCH_MIN_DELTA[k]:
+                # anchor at NORMAL: green = at least your everyday posture,
+                # red = approaching your measured hunch
                 bad_dir = 1 if delta > 0 else -1
+                value = n_med
+                tol = max(abs(h_med - n_med) / HUNCH_DEV, FLOOR_MIN[k])
+                anchors[k] = "normal"
+            else:
+                # hunch ≈ normal on this signal (habit ≈ slouch) — anchor at
+                # tall with the generous floor so everyday jitter stays green
+                bad_dir = 1 if delta > 0 else -1
+                value = t_med
+                tol = max(TOL_FLOOR[k], SIGMA_MULT * sigma)
+                anchors[k] = "tall"
             signals[k] = SignalCal(value=value, tol=tol, bad_dir=bad_dir)
 
         if all(c.bad_dir == 0 for c in signals.values()):
@@ -273,7 +290,11 @@ class CalibrationSession:
         self._candidate = Baseline(
             signals=signals,
             created_at=fresh_timestamp(),
-            report={"setup": dict(self.setup_report), "degraded": self.degraded},
+            report={
+                "setup": dict(self.setup_report),
+                "degraded": self.degraded,
+                "anchor": anchors,
+            },
         )
         self._enter("verify", now)
         return StepResult("verify", "verify 0s", events=["enter_verify"])
