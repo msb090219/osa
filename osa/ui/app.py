@@ -417,6 +417,9 @@ class OsaApp(QObject):
                 self._handle_event(ev)
 
     def _on_cam_recovered(self) -> None:
+        from osa import diag
+
+        diag.log("camera: recovered")
         if self.machine.state is State.CAMERA_ERROR:
             self.machine.camera_ok(time.monotonic())
 
