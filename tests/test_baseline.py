@@ -1,7 +1,9 @@
-"""Tests for osa.core.baseline — calibration + deviation scoring."""
+"""Tests for osa.core.baseline — deviation scoring + v3 persistence."""
 from __future__ import annotations
 
-from osa.core.baseline import Baseline, Calibrator
+import pytest
+
+from osa.core.baseline import BASELINE_VERSION, TOL_FLOOR, Baseline, SignalCal
 from osa.vision.metrics import FrameSignals
 
 
@@ -13,26 +15,21 @@ def fs(pitch=5.0, sink=0.72, lean=0.52, ok=True):
     )
 
 
-def build(pitch_bad_dir=1):
-    """Standard calibration: tall pose, then hunch = pitch up, sink down, lean up."""
-    cal = Calibrator(min_tall=3, min_hunch=3)
-    for _ in range(3):
-        cal.add(fs(pitch=5.0, sink=0.72, lean=0.52))
-    for _ in range(3):
-        cal.add(fs(pitch=15.0, sink=0.62, lean=0.58))
-    return cal.build()
-
-
-def test_build_learns_bad_directions():
-    b = build()
-    assert b is not None
-    assert b.signals["head_sink"].bad_dir == -1   # hunch lowers sink
-    assert b.signals["lean_in"].bad_dir == +1     # hunch raises lean
-    assert b.signals["head_pitch"].bad_dir == +1  # synthetic hunch raises pitch
+def make() -> Baseline:
+    """tall pose: pitch 5°, sink 0.72, lean 0.52; bad = pitch↑, sink↓, lean↑."""
+    return Baseline(
+        signals={
+            "head_pitch": SignalCal(5.0, TOL_FLOOR["head_pitch"], +1),
+            "head_sink": SignalCal(0.72, TOL_FLOOR["head_sink"], -1),
+            "lean_in": SignalCal(0.52, TOL_FLOOR["lean_in"], +1),
+        },
+        created_at=1.0,
+        report={"tune": 1.0, "degraded": False},
+    )
 
 
 def test_deviation_at_baseline_is_zero_and_hunch_is_bad():
-    b = build()
+    b = make()
     assert b.deviation(fs(pitch=5.0, sink=0.72, lean=0.52)) == 0.0
     d_half = b.deviation(fs(pitch=9.0, sink=0.72, lean=0.52))  # pitch +4° = half the 8° floor
     assert abs(d_half - 0.5) < 1e-9
@@ -41,64 +38,32 @@ def test_deviation_at_baseline_is_zero_and_hunch_is_bad():
 
 
 def test_sitting_taller_than_baseline_not_penalized():
-    b = build()
-    assert b.deviation(fs(pitch=0.0, sink=0.95, lean=0.45)) == 0.0
+    assert make().deviation(fs(pitch=0.0, sink=0.95, lean=0.45)) == 0.0
 
 
 def test_sensitivity_scales_tolerance():
-    b = build()
+    b = make()
     relaxed = fs(pitch=13.0, sink=0.72, lean=0.52)  # pitch +8° = exactly 1.0
     assert abs(b.deviation(relaxed) - 1.0) < 1e-9
     assert abs(b.deviation(relaxed, sensitivity=2.0) - 2.0) < 1e-9
 
 
-def test_baseline_version_stamped_and_stale_rejected():
-    import pytest
-
-    b = build()
-    d = b.to_dict()
-    assert d["version"] == 2
-    Baseline.from_dict(d)  # roundtrip ok
-    stale = dict(d)
-    stale.pop("version")
-    with pytest.raises(ValueError):
-        Baseline.from_dict(stale)
-
-
 def test_unscorable_frame_returns_none():
-    assert build().deviation(fs(ok=False)) is None
+    assert make().deviation(fs(ok=False)) is None
 
 
-def test_flat_hunch_rejected():
-    """If nothing moved between tall and hunch phases, no direction is
-    learnable — build() must refuse rather than guess."""
-    cal = Calibrator(min_tall=3, min_hunch=3)
-    for _ in range(3):
-        cal.add(fs())
-    for _ in range(3):
-        cal.add(fs(pitch=5.1))  # deltas: pitch 0.1°, sink 0, lean 0 — all noise
-    assert cal.build() is None
-
-
-def test_incomplete_calibration_returns_none():
-    cal = Calibrator(min_tall=3, min_hunch=3)
-    for _ in range(2):
-        cal.add(fs())
-    assert cal.build() is None
-    assert cal.phase == "tall"
-    assert cal.progress == (2, 3, 0, 3)
-
-
-def test_non_ok_frames_are_ignored():
-    cal = Calibrator(min_tall=3, min_hunch=3)
-    cal.add(fs(ok=False))
-    assert cal.progress == (0, 3, 0, 3)
-
-
-def test_dict_roundtrip():
-    b = build()
+def test_dict_roundtrip_includes_report():
+    b = make()
     d = b.to_dict()
+    assert d["version"] == BASELINE_VERSION == 3
     b2 = Baseline.from_dict(d)
-    assert b2.deviation(fs(pitch=20.0, sink=0.5, lean=0.6)) == b.deviation(
-        fs(pitch=20.0, sink=0.5, lean=0.6)
-    )
+    assert b2.report == b.report
+    probe = fs(pitch=20.0, sink=0.5, lean=0.6)
+    assert b2.deviation(probe) == b.deviation(probe)
+
+
+def test_stale_version_rejected():
+    d = make().to_dict()
+    d["version"] = 2
+    with pytest.raises(ValueError):
+        Baseline.from_dict(d)

@@ -45,6 +45,8 @@ class FrameSignals:
     head_roll: float | None = None
     head_sink: float | None = None  # (shoulder_y - ear_y)/shoulder_w; larger = sitting taller
     lean_in: float | None = None  # face_w/shoulder_w; larger = poking toward the screen
+    shoulder_w: float | None = None  # normalized inter-shoulder distance (framing check)
+    luminance: float | None = None  # mean frame brightness 0-255 (lighting check)
 
 
 def euler_from_matrix(m) -> tuple[float, float, float]:
@@ -106,4 +108,5 @@ def compute_signals(pose_lms, face_lms, face_matrix) -> FrameSignals:
         head_roll=roll,
         head_sink=head_sink,
         lean_in=lean_in,
+        shoulder_w=shoulder_w,
     )

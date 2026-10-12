@@ -7,7 +7,8 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QTimer
 
 import config as config_mod
-from osa.core.baseline import Baseline, Calibrator
+from osa.core.baseline import Baseline
+from osa.core.calibration import CalibrationSession
 from osa.core.smoother import Smoother
 from osa.core.states import (
     EVENT_ALERT,
@@ -32,7 +33,12 @@ except ImportError:  # non-Windows dev machines
     def _chime() -> None:
         pass
 
-_CAL_COUNTDOWN_S = 3.0
+_CAL_TOASTS = {
+    "enter_tall": ("SIT TALL", "Best posture, chin gently tucked — hold still ~10 s."),
+    "enter_normal": ("Sit NORMALLY", "Everyday posture — not tall, not slouched. ~8 s."),
+    "enter_hunch": ("Now HUNCH", "Deliberately relax into your typical slouch. ~6 s."),
+    "enter_verify": ("Final check", "Sit normal while OSA verifies its tuning (~12 s)."),
+}
 
 
 class OsaApp(QObject):
@@ -72,6 +78,7 @@ class OsaApp(QObject):
         self.tray.hud_toggled.connect(self._on_hud_toggled)
         self.tray.settings_requested.connect(self._open_settings)
         self.tray.quit_requested.connect(self._on_quit)
+        self.tray.continue_anyway.connect(self._on_continue_anyway)
         self.tray.sync_hud_action(self.hud.isVisible())
 
         self.worker = VisionWorker(
@@ -82,7 +89,7 @@ class OsaApp(QObject):
         self.worker.cam_recovered.connect(self._on_cam_recovered)
 
         # calibration bookkeeping
-        self._cal: dict | None = None  # {"stage": …, "t0": …, "cal": Calibrator}
+        self._cal: CalibrationSession | None = None
 
         # posture history + stretch reminders
         self.log = PostureLog(config_mod.APP_DIR / "log.db")
@@ -136,38 +143,61 @@ class OsaApp(QObject):
         self.worker.wait(4000)
 
     # ------------------------------------------------------------------
-    # calibration flow
+    # calibration flow (guided, v3)
     def start_calibration(self) -> None:
-        self._cal = {
-            "stage": "countdown",
-            "t0": time.monotonic(),
-            "cal": Calibrator(min_tall=10, min_hunch=5),
-        }
+        self._cal = CalibrationSession()
+        self.tray.show_continue(False)
         self.tray.toast(
-            "Calibrating: sit TALL",
-            f"Best posture, chin gently tucked — capture starts in "
-            f"{_CAL_COUNTDOWN_S:.0f}s.",
+            "Setup check",
+            "Sit facing the camera and look at the CENTER of your screen…",
         )
-        self.hud.set_status("calibrating", "sit tall…")
+        self.hud.set_status("calibrating", "setup 0/5")
 
-    def _finish_calibration(self) -> None:
-        assert self._cal is not None
-        built = self._cal["cal"].build()
-        self._cal = None
-        if built is None:
+    def _on_continue_anyway(self) -> None:
+        if self._cal is not None:
+            self._cal.force_continue(time.monotonic())
+            self.tray.show_continue(False)
             self.tray.toast(
-                "Calibration didn't take",
-                "Your hunch sample looked the same as your tall pose — "
-                "exaggerate the slouch and try again.",
+                "Setup checks skipped",
+                "Calibrating anyway — watch for wobblier scoring.",
             )
+
+    def _cal_step(self, sig) -> None:
+        res = self._cal.feed(sig, time.monotonic())
+        self.hud.set_status("calibrating", res.progress or res.phase)
+        for ev in res.events:
+            if ev in _CAL_TOASTS:
+                self.tray.toast(*_CAL_TOASTS[ev])
+                if ev == "enter_tall":
+                    self.tray.show_continue(False)
+            elif ev == "setup_stuck":
+                self.tray.show_continue(True)
+                self.tray.toast(
+                    "Setup check stuck",
+                    "Fix what the HUD shows, or choose 'Continue anyway' in "
+                    "the tray menu.",
+                )
+            elif ev.startswith("failed:"):
+                self.tray.toast("Calibration failed", res.hint or ev)
+            elif ev == "calibrated" and res.baseline is not None:
+                self._accept_baseline(res.baseline)
+
+        if res.phase in ("done", "failed"):
+            self._cal = None
+            self.tray.show_continue(False)
             if self.baseline is None:
                 self._sync_uncalibrated_ui()
-            return
+
+    def _accept_baseline(self, built: Baseline) -> None:
         self.baseline = built
         self.cfg["baseline"] = built.to_dict()
         config_mod.save(self.cfg)
         self.machine.mark_calibrated()
-        self.tray.toast("Calibrated ✓", "Watching your posture. Sit easy, I've got you.")
+        tune = (built.report or {}).get("tune", 1.0)
+        notes = " (auto-tuned ✓)" if tune > 1.0 else ""
+        if (built.report or {}).get("degraded"):
+            notes += " · setup checks were skipped"
+        self.tray.toast("Calibrated ✓", f"Watching your posture{notes}.")
         self.hud.set_live(0.0, "good")
 
     # ------------------------------------------------------------------
@@ -228,37 +258,6 @@ class OsaApp(QObject):
         ex = exs[self._ex_i % len(exs)]
         self._ex_i += 1
         self.tray.toast(f"Stretch break: {ex['name']}", ex.get("how", ""))
-
-    def _cal_step(self, sig) -> None:
-        cal = self._cal
-        stage, t0 = cal["stage"], cal["t0"]
-        if stage == "countdown":
-            if time.monotonic() - t0 >= _CAL_COUNTDOWN_S:
-                cal["stage"], cal["t0"] = "tall", time.monotonic()
-            else:
-                left = _CAL_COUNTDOWN_S - (time.monotonic() - t0)
-                self.hud.set_status("calibrating", f"sit tall… {left:.0f}s")
-            return
-
-        accepted = cal["cal"].add(sig)
-        if not accepted:  # unscorable frame — hud hint, keep waiting
-            self.hud.set_status("calibrating", "can't see you…")
-            return
-
-        tall_got, tall_need, hunch_got, hunch_need = cal["cal"].progress
-        if stage == "tall":
-            self.hud.set_status("calibrating", f"tall {tall_got}/{tall_need}")
-            if cal["cal"].phase == "hunch":
-                cal["stage"], cal["t0"] = "hunch", time.monotonic()
-                self.tray.toast(
-                    "Now relax into your slouch",
-                    "Drop into your typical hunch for a few seconds — "
-                    "this teaches OSA what to watch for.",
-                )
-        elif stage == "hunch":
-            self.hud.set_status("calibrating", f"hunch {hunch_got}/{hunch_need}")
-            if cal["cal"].ready:
-                self._finish_calibration()
 
     # ------------------------------------------------------------------
     def _render(self, state: State, dev: float | None) -> None:

@@ -17,7 +17,12 @@ Hours of poking your head toward a laptop screen is exactly what reinforces a st
 
 ## How to use
 
-1. **Calibrate** (tray menu → *Calibrate…*): sit at your tallest, chin gently tucked — after a 3 s countdown OSA captures ~5 s of your best posture, then asks you to **deliberately relax into your typical slouch** for a few seconds. That hunch sample teaches OSA which direction is "bad" *for your body on your camera setup* — no generic assumptions.
+1. **Calibrate** (tray menu → *Calibrate…*) — a guided ~50 s flow:
+   - **Setup check** — OSA first validates your *camera*: level (not tilted), height (you shouldn't be craning up or tilting your chin down at it), framing (enough torso visible), and lighting. The HUD shows which check is failing and how to fix it.
+   - **Sit tall** (~10 s) — your best posture, chin gently tucked.
+   - **Sit normal** (~8 s) — everyday posture; OSA widens tolerances so your normal doesn't live in the amber zone.
+   - **Hunch** (~6 s) — deliberately relax into your slouch; this teaches OSA which direction is bad *for your body on your camera*.
+   - **Verify** (~12 s) — sit normal while OSA scores itself against its fresh baseline and auto-tunes until your normal reads green. Calibration only succeeds if it can prove your normal posture scores good.
 2. **Live**: a slim always-on-top HUD shows a 10-segment meter — green (good), amber (drifting), red (hunched). The tray dot mirrors it.
 3. **Nudges**: hunch long enough (45 s by default) and you get a toast; stay hunched and it politely re-nags. Sit well for 10 s and it acknowledges.
 4. **Life happens**: leave the desk and it stops scoring (grey). Pause it for meetings. Recalibrate whenever your chair/monitor setup changes.

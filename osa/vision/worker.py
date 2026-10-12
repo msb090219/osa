@@ -7,6 +7,7 @@ landmarker instance).
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import cv2
@@ -62,6 +63,7 @@ class VisionWorker(QThread):
                         continue
                     fails = 0
                     sig = lm.signals(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), ts_ms)
+                    sig = replace(sig, luminance=float(frame.mean()))
                     self.frame.emit(sig)
 
             except (CameraError, FileNotFoundError) as e:

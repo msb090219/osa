@@ -37,6 +37,7 @@ class Tray(QObject):
     hud_toggled = Signal(bool)  # True = now visible
     settings_requested = Signal()
     quit_requested = Signal()
+    continue_anyway = Signal()  # skip a stuck setup check during calibration
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -49,6 +50,8 @@ class Tray(QObject):
         self.status_action = QAction("status: starting…", self.menu)
         self.status_action.setEnabled(False)
         self.cal_action = QAction("&Calibrate…", self.menu)
+        self.cont_action = QAction("Continue &anyway (skip setup checks)", self.menu)
+        self.cont_action.setVisible(False)
         self.pause_action = QAction("&Pause (meetings)", self.menu)
         self.hud_action = QAction("Show &HUD", self.menu)
         self.settings_action = QAction("&Settings…", self.menu)
@@ -68,6 +71,7 @@ class Tray(QObject):
                 self.menu.addAction(a)
 
         self.cal_action.triggered.connect(self.calibrate_requested)
+        self.cont_action.triggered.connect(self.continue_anyway.emit)
         self.pause_action.triggered.connect(self._on_pause)
         self.hud_action.triggered.connect(self._on_hud)
         self.settings_action.triggered.connect(self.settings_requested)
@@ -89,6 +93,9 @@ class Tray(QObject):
     def sync_hud_action(self, visible: bool) -> None:
         self._hud_visible = visible
         self.hud_action.setText("Hide &HUD" if visible else "Show &HUD")
+
+    def show_continue(self, visible: bool) -> None:
+        self.cont_action.setVisible(visible)
 
     def set_paused_ui(self, paused: bool) -> None:
         self._paused = paused
