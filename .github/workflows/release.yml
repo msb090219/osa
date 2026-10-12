@@ -43,6 +43,7 @@ jobs:
         run: cd dist && zip -qry ${{ matrix.asset }} OSA.app
 
       - name: attach to draft release
+        shell: bash  # backslash continuations + `|| true` are bash syntax
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
