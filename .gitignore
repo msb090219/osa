@@ -19,10 +19,9 @@ models/*.task
 *.db
 *.sqlite3
 
-# Packaging
+# Packaging build output (the PyInstaller spec itself IS tracked)
 build/
 dist/
-*.spec
 
 # Tooling
 .zcode/
