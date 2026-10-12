@@ -235,17 +235,23 @@ class OsaApp(QObject):
             )
 
     def _place_preview(self) -> None:
-        """Seat the preview as its own box near the HUD — 16px below,
-        left-aligned, clamped on-screen. The two never visually attach."""
+        """Form the calibration stack: the bar sits centered directly above
+        the camera box, 14px apart — one tidy column. Programmatic moves run
+        under the pairing guard so the follower logic can't react to them."""
         screen = self.hud.screen()
         avail = screen.availableGeometry() if screen else None
-        x = self.hud.x()
-        y = self.hud.y() + self.hud.height() + 16
+        x = self.hud.x() + self.hud.width() // 2 - self.preview_win.width() // 2
+        y = self.hud.y() + self.hud.height() + 14
         if avail is not None:
             if y + self.preview_win.height() > avail.bottom():
-                y = self.hud.y() - self.preview_win.height() - 16
+                y = self.hud.y() - self.preview_win.height() - 14
             x = max(avail.left(), min(x, avail.right() - self.preview_win.width()))
+
+        self._pair_moving = True
         self.preview_win.move(x, y)
+        # re-center the (narrower) bar over the box so the column is flush
+        self.hud.move(x + self.preview_win.width() // 2 - self.hud.width() // 2, self.hud.y())
+        self._pair_moving = False
         self._last_hud = self.hud.pos()
         self._last_prev = self.preview_win.pos()
 
