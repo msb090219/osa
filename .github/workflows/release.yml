@@ -1,0 +1,52 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: osa-win64.zip
+          - os: macos-13
+            asset: osa-macos-intel.zip
+          - os: macos-14
+            asset: osa-macos-arm64.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: python fetch_models.py
+      - run: pytest -q
+
+      - name: build with PyInstaller
+        run: python -m PyInstaller osa.spec --noconfirm --clean
+
+      - name: package (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/osa -DestinationPath dist/${{ matrix.asset }}
+
+      - name: package (macos)
+        if: runner.os == 'macOS'
+        run: cd dist && zip -qry ${{ matrix.asset }} OSA.app
+
+      - name: attach to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "${{ github.ref_name }}" --draft \
+            --title "${{ github.ref_name }}" \
+            --notes "Auto-built artifacts. Fill in the notes, then publish." || true
+          gh release upload "${{ github.ref_name }}" dist/${{ matrix.asset }} --clobber
