@@ -1,24 +1,60 @@
-"""Calibration camera preview — see yourself as OSA sees you.
+"""Calibration camera preview — its own floating box, not docked to anything.
 
-A small always-on-top window showing the mirrored (selfie-view) camera
-feed with the shoulder line and ear marks OSA is measuring, plus the live
-calibration phase caption. Frames arrive via the worker's preview signal;
-nothing here is ever written to disk.
+Shows the mirrored (selfie-view) camera feed with the shoulder line and
+ear marks OSA is measuring, the position-instruction banner, and a
+two-line caption that word-wraps (and elides) so text always fits.
+Nothing here is ever written to disk.
 """
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QRect, Qt
-from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPainterPath, QPen
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QFontMetrics,
+    QImage,
+    QPainter,
+    QPen,
+)
 from PySide6.QtWidgets import QWidget
 
 from ..vision.worker import PreviewPayload
 
-_PAD = 8
-_CAPTION_H = 34
+_W = 320
+_PAD = 10
+_VIDEO_W = _W - 2 * _PAD
+_VIDEO_H = 228
+_CAPTION_H = 34  # two wrapped lines
+_H = _PAD + _VIDEO_H + 6 + _CAPTION_H + _PAD
+
+
+def _wrap_elided(fm: QFontMetrics, text: str, width: int, max_lines: int = 2) -> list[str]:
+    """Greedy word-wrap into at most `max_lines` lines; overflow merges into
+    the last line and elides."""
+    words = text.split()
+    lines: list[str] = []
+    cur = ""
+    i = 0
+    while i < len(words) and len(lines) < max_lines:
+        cand = f"{cur} {words[i]}".strip()
+        if not cur or fm.horizontalAdvance(cand) <= width:
+            cur = cand
+            i += 1
+        else:
+            lines.append(cur)
+            cur = ""
+    if cur and len(lines) < max_lines:
+        lines.append(cur)
+        cur = ""
+    if i < len(words):  # didn't fit — merge the tail into the last line
+        tail = " ".join(words[i:])
+        last = f"{lines[-1]} {tail}".strip() if lines else tail
+        lines[-1:] = [fm.elidedText(last, Qt.ElideRight, width)]
+    return lines or [""]
 
 
 class PreviewWindow(QWidget):
-    """Docked below the HUD; same width so the two read as one unit."""
+    """A standalone always-on-top box placed near (never attached to) the HUD."""
 
     def __init__(self):
         super().__init__()
@@ -27,7 +63,7 @@ class PreviewWindow(QWidget):
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_MacAlwaysShowToolWindow, True)
-        self.setFixedSize(320, 288)  # HUD is 320 wide; 4:3 video + caption
+        self.setFixedSize(_W, _H)
 
         self._img: QImage | None = None
         self._img_size = (0, 0)
@@ -69,45 +105,40 @@ class PreviewWindow(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         w, h = self.width(), self.height()
 
-        # plate: squared top (fuses with the HUD above), rounded bottom
-        r = 10
-        plate = QPainterPath()
-        plate.moveTo(0, 0)
-        plate.lineTo(w, 0)
-        plate.lineTo(w, h - r)
-        plate.quadTo(w, h, w - r, h)
-        plate.lineTo(r, h)
-        plate.quadTo(0, h, 0, h - r)
-        plate.closeSubpath()
+        # plate — rounded on every corner; a standalone box
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(18, 20, 24, 235))
-        p.drawPath(plate)
+        p.drawRoundedRect(0, 0, w, h, 12, 12)
 
-        video = QRect(_PAD, _PAD, w - 2 * _PAD, h - 2 * _PAD - _CAPTION_H)
+        video = QRect(_PAD, _PAD, _VIDEO_W, _VIDEO_H)
         p.setBrush(QColor(0, 0, 0))
         p.drawRoundedRect(video, 8, 8)
 
         if self._img is not None:
-            # letterbox-fit the frame inside the video rect
+            # letterbox-fit the frame inside the video well
             iw, ih = self._img_size
             scale = min(video.width() / iw, video.height() / ih)
             dw, dh = int(iw * scale), int(ih * scale)
-            dx = video.x() + (video.width() - dw) // 2
-            dy = video.y() + (video.height() - dh) // 2
-            target = QRect(dx, dy, dw, dh)
+            target = QRect(
+                video.x() + (video.width() - dw) // 2,
+                video.y() + (video.height() - dh) // 2,
+                dw,
+                dh,
+            )
 
             p.save()
             p.drawImage(target, self._img)
 
-            # marks: mirror x so the preview matches the selfie view
             def mark(pt):
                 if pt is None:
                     return None
                 x, y = pt
-                return target.x() + (1 - x / iw) * target.width(), target.y() + y / ih * target.height()
+                return (
+                    target.x() + (1 - x / iw) * target.width(),
+                    target.y() + y / ih * target.height(),
+                )
 
             ls, rs, le, re = (mark(m) for m in (self._marks or (None,) * 4))
-            p.setRenderHint(QPainter.Antialiasing)
             if ls and rs:
                 pen = QPen(QColor(34, 197, 94, 220))
                 pen.setWidth(2)
@@ -120,29 +151,44 @@ class PreviewWindow(QWidget):
                     p.drawEllipse(int(pt[0]) - 4, int(pt[1]) - 4, 8, 8)
             p.restore()
 
-        # position instruction banner — the loudest thing on the window
+        # position instruction banner across the top of the video
         title, detail = self._instruction
         if title:
-            banner_h = 58 if detail else 38
-            banner = QRect(_PAD, _PAD, w - 2 * _PAD, banner_h)
+            fm_t = QFontMetrics(QFont("Segoe UI", 15, QFont.Bold))
+            fm_d = QFontMetrics(QFont("Segoe UI", 9))
+            banner_h = 56 if detail else 36
+            banner = QRect(_PAD, _PAD, _VIDEO_W, banner_h)
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(10, 12, 16, 208))
             p.drawRoundedRect(banner, 8, 8)
+            inner_w = _VIDEO_W - 16
             p.setPen(QColor(255, 255, 255))
             p.setFont(QFont("Segoe UI", 15, QFont.Bold))
-            p.drawText(banner.adjusted(0, 4, 0, 0), Qt.AlignHCenter | Qt.AlignTop, title)
+            p.drawText(
+                banner.adjusted(8, 4, -8, 0),
+                Qt.AlignHCenter | Qt.AlignTop,
+                fm_t.elidedText(title, Qt.ElideRight, inner_w),
+            )
             if detail:
                 p.setPen(QColor(209, 213, 219))
                 p.setFont(QFont("Segoe UI", 9))
                 p.drawText(
-                    banner.adjusted(10, 32, -10, 0), Qt.AlignHCenter | Qt.AlignTop, detail
+                    banner.adjusted(8, 33, -8, 0),
+                    Qt.AlignHCenter | Qt.AlignTop,
+                    fm_d.elidedText(detail, Qt.ElideRight, inner_w),
                 )
 
-        # caption strip
+        # caption strip — two wrapped, elided lines
+        cap_fm = QFontMetrics(QFont("Segoe UI", 9))
+        cap_w = w - 2 * _PAD
+        lines = _wrap_elided(cap_fm, self._caption, cap_w, max_lines=2)
+        p.setFont(QFont("Segoe UI", 9))
         p.setPen(QColor(235, 238, 242))
-        p.setFont(QFont("Segoe UI", 10, QFont.Bold))
-        p.drawText(
-            QRect(_PAD, h - _CAPTION_H - _PAD // 2, w - 2 * _PAD, _CAPTION_H),
-            Qt.AlignVCenter | Qt.AlignHCenter,
-            self._caption,
-        )
+        line_h = 15
+        y0 = h - _PAD - _CAPTION_H + (_CAPTION_H - line_h * len(lines)) // 2
+        for i, line in enumerate(lines):
+            p.drawText(
+                QRect(_PAD, y0 + i * line_h, cap_w, line_h),
+                Qt.AlignHCenter | Qt.AlignVCenter,
+                line,
+            )

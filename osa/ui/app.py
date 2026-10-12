@@ -114,7 +114,6 @@ class OsaApp(QObject):
         # calibration camera preview (hidden until a calibration runs)
         self.preview_win = PreviewWindow()
         self.worker.preview.connect(self.preview_win.update_frame)
-        self.hud.moved.connect(self._dock_preview)
 
         # calibration bookkeeping
         self._cal: CalibrationSession | None = None
@@ -211,7 +210,7 @@ class OsaApp(QObject):
         self.preview_win.set_instruction(*_CAL_INSTRUCTIONS["setup"])
         self.preview_win.set_caption("setup check…")
         self.preview_win.show()
-        self._dock_preview()
+        self._place_preview()
         self.preview_win.raise_()
         self.tray.toast(
             "Setup check",
@@ -228,17 +227,16 @@ class OsaApp(QObject):
                 "Calibrating anyway — watch for wobblier scoring.",
             )
 
-    def _dock_preview(self) -> None:
-        """Seat the preview flush under the HUD (flip above if it won't fit)."""
-        if not self.preview_win.isVisible():
-            return
+    def _place_preview(self) -> None:
+        """Seat the preview as its own box near the HUD — 16px below,
+        left-aligned, clamped on-screen. The two never visually attach."""
         screen = self.hud.screen()
         avail = screen.availableGeometry() if screen else None
         x = self.hud.x()
-        y = self.hud.y() + self.hud.height()
+        y = self.hud.y() + self.hud.height() + 16
         if avail is not None:
             if y + self.preview_win.height() > avail.bottom():
-                y = self.hud.y() - self.preview_win.height()
+                y = self.hud.y() - self.preview_win.height() - 16
             x = max(avail.left(), min(x, avail.right() - self.preview_win.width()))
         self.preview_win.move(x, y)
 

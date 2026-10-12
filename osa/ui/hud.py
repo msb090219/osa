@@ -1,19 +1,27 @@
-"""The always-on-top posture HUD: a slim frameless bar.
+"""The always-on-top posture HUD: a slim, content-hugging frameless bar.
 
-Shows a 10-segment deviation meter (green → amber → red) and a status label.
-Draggable anywhere; the controller persists its position between runs.
+Width hugs its content (measured, elided if pathological), so there's
+neither clipped text nor trailing dead space. While scoring, the bar keeps
+one constant width — the widest live label — so it never breathes between
+states.
 """
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
-_PAD = 10
+_PAD = 12  # outer padding, both sides
 _SEG_W = 14
 _SEG_H = 14
 _SEG_GAP = 3
-_TEXT_RIGHT = 12
+_METER_W = 10 * _SEG_W + 9 * _SEG_GAP
+_METER_TEXT_GAP = 12
+_MAX_TEXT_W = 260  # beyond this the label elides
+_H = 40
+
+# widest live label — keeps one stable width while scoring
+_LIVE_WIDTH_LABEL = "hunched 0.0"
 
 _COLORS = {
     "good": QColor("#22c55e"),
@@ -28,6 +36,9 @@ class Hud(QWidget):
     """`level` is the deviation score (None = not scorable). `mode` is one of
     'live' | 'uncalibrated' | 'calibrating' | 'paused' | 'away' | 'cam_error'."""
 
+    doubleClicked = Signal()
+    moved = Signal()  # fired on every move so other windows can react
+
     def __init__(self):
         super().__init__()
         self.setWindowFlags(
@@ -37,17 +48,17 @@ class Hud(QWidget):
         # macOS hides tool windows when the app loses focus — keep the HUD
         # visible regardless (no-op on other platforms)
         self.setAttribute(Qt.WA_MacAlwaysShowToolWindow, True)
-        self.setFixedSize(320, 44)
+        self.setFixedHeight(_H)
 
         self.level: float | None = None
         self.mode = "uncalibrated"
-        self.text = "calibrate me"
+        self.text = "double-click = calibrate"
         self._drag_off = QPoint()
         self._menu = None  # optional context menu (the tray menu, reused)
 
-    doubleClicked = Signal()
-    moved = Signal()  # fired on every move so docked windows can follow
+        self._relayout()
 
+    # ------------------------------------------------------------------
     def set_context_menu(self, menu) -> None:
         self._menu = menu
 
@@ -55,18 +66,30 @@ class Hud(QWidget):
         if self._menu is not None:
             self._menu.popup(ev.globalPos())
 
-    def moveEvent(self, _):
-        self.moved.emit()
-
-    # ------------------------------------------------------------------
     def set_live(self, level: float, text: str) -> None:
         self.mode, self.level, self.text = "live", level, text
-        self.update()
+        self._relayout()
 
     def set_status(self, mode: str, text: str) -> None:
         self.mode, self.text = mode, text
         self.level = None
+        self._relayout()
+
+    # ------------------------------------------------------------------
+    def _font(self) -> QFont:
+        return QFont("Segoe UI", 10, QFont.Bold)
+
+    def _relayout(self) -> None:
+        """Fit width to content; elide labels that would exceed the max."""
+        fm = QFontMetrics(self._font())
+        label = _LIVE_WIDTH_LABEL if self.mode == "live" else self.text
+        text_w = min(fm.horizontalAdvance(label), _MAX_TEXT_W)
+        w = _PAD + _METER_W + _METER_TEXT_GAP + text_w + _PAD
+        self.setFixedWidth(max(w, _PAD + _METER_W + _PAD))
         self.update()
+
+    def moveEvent(self, _):
+        self.moved.emit()
 
     # ------------------------------------------------------------------
     def mousePressEvent(self, e):
@@ -89,7 +112,6 @@ class Hud(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         w, h = self.width(), self.height()
 
-        # background plate
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(18, 20, 24, 232))
         p.drawRoundedRect(0, 0, w, h, 10, 10)
@@ -110,7 +132,6 @@ class Hud(QWidget):
                 )
             )
 
-        # segments
         y = (h - _SEG_H) // 2
         for i in range(10):
             x = _PAD + i * (_SEG_W + _SEG_GAP)
@@ -119,16 +140,14 @@ class Hud(QWidget):
             p.setBrush(bar_color if on else QColor(255, 255, 255, 36))
             p.drawRoundedRect(x, y, _SEG_W, _SEG_H, 3, 3)
 
-        # label
+        fm = QFontMetrics(self._font())
+        text = fm.elidedText(self.text, Qt.ElideRight, _MAX_TEXT_W)
+        text_x = _PAD + _METER_W + _METER_TEXT_GAP
         pen = QPen(QColor(235, 238, 242))
         p.setPen(pen)
-        f = QFont("Segoe UI", 10, QFont.Bold)
-        p.setFont(f)
+        p.setFont(self._font())
         p.drawText(
-            _PAD + 10 * (_SEG_W + _SEG_GAP) + _TEXT_RIGHT - _SEG_GAP,
-            0,
-            w - _PAD,
-            h,
+            text_x, 0, w - _PAD - text_x, h,
             Qt.AlignVCenter | Qt.AlignLeft,
-            self.text,
+            text,
         )
