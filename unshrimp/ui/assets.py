@@ -11,10 +11,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QColor, QPainter, QPixmap
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 BRAND_DIR = ROOT / "assets" / "brand"
+
+_master_cache: QPixmap | None | bool = None  # False until art is provided
 
 
 def brand_pixmap(name: str) -> QPixmap | None:
@@ -25,6 +27,36 @@ def brand_pixmap(name: str) -> QPixmap | None:
         if not pm.isNull():
             return pm
     return None
+
+
+def master_shrimp() -> QPixmap | None:
+    """The user's master shrimp glyph (background knocked out), cached."""
+    global _master_cache
+    if _master_cache is None:
+        _master_cache = brand_pixmap("shrimp_master.png") or False
+    return _master_cache if _master_cache else None
+
+
+def tinted_shrimp(hex_color: str, width: int, height: int) -> QPixmap | None:
+    """The master shrimp recolored to a single state color, fit into
+    width×height. None when no master art exists (caller draws the code
+    shrimp instead). This is how one design becomes green/amber/red/etc."""
+    master = master_shrimp()
+    if master is None:
+        return None
+    mask = master.scaled(
+        width, height,
+        Qt.AspectRatioMode.KeepAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+    out = QPixmap(mask.size())
+    out.fill(Qt.GlobalColor.transparent)
+    p = QPainter(out)
+    p.drawPixmap(0, 0, mask)  # destination = the shrimp mask
+    p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+    p.fillRect(out.rect(), QColor(hex_color))  # recolor, keep the mask alpha
+    p.end()
+    return out
 
 
 def shrimp_mascot(width: int, height: int) -> QPixmap | None:

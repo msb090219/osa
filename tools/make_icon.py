@@ -34,8 +34,14 @@ def main() -> int:
     pm.fill(QColor(0, 0, 0, 0))
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
-    body_h = int(size * 0.66)
-    paint_shrimp(p, QRectF(4, (size - body_h) / 2, size - 8, body_h), theme.SHRIMP)
+    from unshrimp.ui import assets as _assets
+
+    art = _assets.tinted_shrimp(theme.SHRIMP, size - 8, size - 8)
+    if art is not None:
+        p.drawPixmap((size - art.width()) // 2, (size - art.height()) // 2, art)
+    else:
+        body_h = int(size * 0.66)
+        paint_shrimp(p, QRectF(4, (size - body_h) / 2, size - 8, body_h), theme.SHRIMP)
     p.end()
 
     out_dir = ROOT / "assets"

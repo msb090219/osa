@@ -17,16 +17,25 @@ STATE_COLORS = theme.STATE_COLORS
 
 
 def shrimp_icon(color_hex: str) -> QIcon:
-    """The shrimp mark at tray sizes, tinted per state."""
+    """The shrimp mark at tray sizes, tinted per state — the designed
+    master art when provided, the code-drawn shrimp otherwise."""
+    from . import assets as _assets
+
     icon = QIcon()
     for size in (16, 24, 32, 48, 64, 128, 256):
         pm = QPixmap(size, size)
         pm.fill(QColor(0, 0, 0, 0))
+        art = _assets.tinted_shrimp(color_hex, size - 2, size - 2)
         p = QPainter(pm)
         p.setRenderHint(QPainter.Antialiasing)
-        body_h = int(size * 0.66)  # the shrimp is a wide arch — letterbox it
-        rect = QRectF(1, (size - body_h) / 2, size - 2, body_h)
-        paint_shrimp(p, rect, color_hex, details=size >= 48)
+        if art is not None:
+            p.drawPixmap(
+                (size - art.width()) // 2, (size - art.height()) // 2, art
+            )
+        else:
+            body_h = int(size * 0.66)  # wide arch — letterbox it
+            rect = QRectF(1, (size - body_h) / 2, size - 2, body_h)
+            paint_shrimp(p, rect, color_hex, details=size >= 48)
         p.end()
         icon.addPixmap(pm)
     return icon

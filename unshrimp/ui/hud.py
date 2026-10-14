@@ -130,20 +130,24 @@ class Hud(QWidget):
         self.doubleClicked.emit()
 
     def _sprite(self, key: str, hex_color: str | None = None):
-        """A tiny shrimp segment sprite, cached. key 'off' = ghost shrimp."""
+        """A tiny shrimp segment sprite, cached. key 'off' = ghost shrimp.
+        Uses the designed master art (tinted) when provided."""
         pm = self._sprites.get(key)
         if pm is None:
+            from . import assets as _assets
+
+            color = hex_color or key
+            base = _assets.tinted_shrimp(color, _SEG_W, _SEG_H)
+            if base is None:
+                base = shrimp_pixmap(_SEG_W, _SEG_H, color)
             if key == "off":
-                base = shrimp_pixmap(_SEG_W, _SEG_H, "#e5e8ec")
                 gp = QPainter(base)
                 gp.setCompositionMode(
                     QPainter.CompositionMode.CompositionMode_DestinationIn
                 )
                 gp.fillRect(base.rect(), QColor(255, 255, 255, 45))  # ~18% ghost
                 gp.end()
-                pm = base
-            else:
-                pm = shrimp_pixmap(_SEG_W, _SEG_H, hex_color or key)
+            pm = base
             self._sprites[key] = pm
         return pm
 
