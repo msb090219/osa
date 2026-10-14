@@ -7,7 +7,7 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_dynamic_libs, collect_submodules
 
 ROOT = Path(SPECPATH)
-NAME = "OSA" if sys.platform == "darwin" else "osa"
+NAME = "Unshrimp" if sys.platform == "darwin" else "unshrimp"
 
 # MediaPipe loads its C bindings dynamically at runtime, invisible to
 # static analysis — collect the whole package's submodules and native libs.
@@ -18,7 +18,10 @@ a = Analysis(
     ["main.py"],
     pathex=[str(ROOT)],
     binaries=mp_bins,
-    datas=[(str(ROOT / "models"), "models")],  # bundle the MediaPipe models
+    datas=[
+        (str(ROOT / "models"), "models"),  # bundle the MediaPipe models
+        (str(ROOT / "assets"), "assets"),  # brand art (user-replaceable)
+    ],
     hiddenimports=mp_hidden,
     hookspath=[],
     hooksconfig={},
@@ -39,7 +42,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
-    icon=str(ROOT / "assets" / "osa.ico") if sys.platform == "win32" else None,
+    icon=str(ROOT / "assets" / "unshrimp.ico") if sys.platform == "win32" else None,
 )
 
 coll = COLLECT(

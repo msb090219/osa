@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import math
 
-from osa.core.calibration import CalibrationSession
-from osa.vision.metrics import FrameSignals
+from unshrimp.core.calibration import CalibrationSession
+from unshrimp.vision.metrics import FrameSignals
 
 STEP = 0.5
 

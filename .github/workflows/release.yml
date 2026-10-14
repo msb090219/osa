@@ -14,7 +14,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            asset: osa-win64.zip
+            asset: unshrimp-win64.zip
           # macOS packaging paused until its first-run UI issues are fixed
           # and human-verified (tracked for a future release)
     runs-on: ${{ matrix.os }}
@@ -29,12 +29,12 @@ jobs:
       - run: pytest -q
 
       - name: build with PyInstaller
-        run: python -m PyInstaller osa.spec --noconfirm --clean
+        run: python -m PyInstaller unshrimp.spec --noconfirm --clean
 
       - name: package (windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Compress-Archive -Path dist/osa -DestinationPath dist/${{ matrix.asset }}
+        run: Compress-Archive -Path dist/unshrimp -DestinationPath dist/${{ matrix.asset }}
 
       - name: package (macos)
         if: runner.os == 'macOS'

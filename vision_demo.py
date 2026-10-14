@@ -16,9 +16,9 @@ from pathlib import Path
 
 import cv2
 
-from osa.vision import camera as camera_mod
-from osa.vision.camera import CameraError, open_camera, paced_frames, warm_up
-from osa.vision.landmarks import Landmarkers
+from unshrimp.vision import camera as camera_mod
+from unshrimp.vision.camera import CameraError, open_camera, paced_frames, warm_up
+from unshrimp.vision.landmarks import Landmarkers
 
 ROOT = Path(__file__).resolve().parent
 

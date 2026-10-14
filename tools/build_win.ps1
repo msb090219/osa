@@ -10,7 +10,7 @@ if (-Not (Test-Path ".venv\Scripts\python.exe")) {
     .venv\Scripts\python fetch_models.py
 }
 
-& .venv\Scripts\python.exe -m PyInstaller osa.spec --noconfirm --clean
+& .venv\Scripts\python.exe -m PyInstaller unshrimp.spec --noconfirm --clean
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 
 if (Test-Path dist\osa-win64.zip) { Remove-Item dist\osa-win64.zip }

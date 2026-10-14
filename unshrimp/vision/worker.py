@@ -50,6 +50,7 @@ class VisionWorker(QThread):
         self.models_dir = Path(models_dir)
         self.camera_index = camera_index
         self.fps = fps
+        self.inference_interval = 1.0 / fps  # UI-adjustable (adaptive rates)
         self.preview_enabled = False  # plain bool flip from the UI thread
         self._stop = False
 
@@ -96,7 +97,7 @@ class VisionWorker(QThread):
                         continue
                     fails = 0
 
-                    if now - last_inf >= 1.0 / self.fps:
+                    if now - last_inf >= self.inference_interval:
                         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         ts = int((now - t0) * 1000)
                         if ts <= last_ts:  # keep MediaPipe VIDEO ts strictly rising
@@ -115,7 +116,7 @@ class VisionWorker(QThread):
                             last_prev = now
                         else:
                             # pace to the inference budget when nobody's watching
-                            delay = (last_inf + 1.0 / self.fps) - time.perf_counter()
+                            delay = (last_inf + self.inference_interval) - time.perf_counter()
                             if delay > 0:
                                 time.sleep(delay)
                     elif (
@@ -137,7 +138,7 @@ class VisionWorker(QThread):
                     lm.close()
                     lm = None
                 if not in_error:
-                    from osa import diag
+                    from unshrimp import diag
 
                     diag.log(f"camera problem: {e} — retrying every few seconds")
                     self.cam_error.emit()

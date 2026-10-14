@@ -1,7 +1,7 @@
 """Tests for osa.core.states — the alert state machine, fake clock."""
 from __future__ import annotations
 
-from osa.core.states import (
+from unshrimp.core.states import (
     EVENT_ALERT,
     EVENT_BACK,
     EVENT_DRIFT,

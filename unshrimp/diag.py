@@ -18,7 +18,7 @@ from pathlib import Path
 
 import config
 
-_PATH: Path = config.APP_DIR / "osa.log"
+_PATH: Path = config.APP_DIR / "unshrimp.log"
 _lock = threading.Lock()
 _f = None
 
@@ -33,12 +33,12 @@ def start() -> None:
         _f = None  # logging is best-effort; never break the app over it
 
     try:
-        from osa import __version__
+        from unshrimp import __version__
 
         ver = __version__
     except ImportError:
         ver = "?"
-    log(f"=== OSA {ver} · {time.strftime('%Y-%m-%d %H:%M:%S')} · {sys.platform} ===")
+    log(f"=== Unshrimp {ver} · {time.strftime('%Y-%m-%d %H:%M:%S')} · {sys.platform} ===")
 
     try:
         from PySide6.QtCore import qInstallMessageHandler
@@ -59,7 +59,7 @@ def log(msg: str) -> None:
                 _f.write(line + "\n")
             except OSError:
                 pass
-    print(f"[osa] {msg}", file=sys.stderr)
+    print(f"[unshrimp] {msg}", file=sys.stderr)
 
 
 def close() -> None:

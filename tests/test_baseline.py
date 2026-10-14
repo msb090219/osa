@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from osa.core.baseline import BASELINE_VERSION, TOL_FLOOR, Baseline, SignalCal
-from osa.vision.metrics import FrameSignals
+from unshrimp.core.baseline import BASELINE_VERSION, TOL_FLOOR, Baseline, SignalCal
+from unshrimp.vision.metrics import FrameSignals
 
 
 def fs(pitch=5.0, sink=0.72, lean=0.52, ok=True):

@@ -1,4 +1,5 @@
-"""OsaApp — the controller wiring worker, state machine, tray and HUD."""
+"""UnshrimpApp — the controller wiring worker, state machine, tray, HUD,
+camera preview, mascot, and the adaptive inference-rate engine."""
 from __future__ import annotations
 
 import time
@@ -7,10 +8,11 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QPoint, QTimer
 
 import config as config_mod
-from osa.core.baseline import Baseline
-from osa.core.calibration import CalibrationSession
-from osa.core.smoother import Smoother
-from osa.core.states import (
+from unshrimp.core.baseline import Baseline
+from unshrimp.core.calibration import CalibrationSession
+from unshrimp.core.rates import inference_rate
+from unshrimp.core.smoother import Smoother
+from unshrimp.core.states import (
     EVENT_ALERT,
     EVENT_CAM_ERROR,
     EVENT_RECOVERED,
@@ -19,9 +21,10 @@ from osa.core.states import (
     PostureStateMachine,
     Thresholds,
 )
-from osa.storage.db import PostureLog
-from osa.vision.worker import VisionWorker
+from unshrimp.storage.db import PostureLog
+from unshrimp.vision.worker import VisionWorker
 from .hud import Hud
+from .mascot import MascotWindow
 from .preview import PreviewWindow
 from .tray import Tray
 
@@ -59,7 +62,7 @@ _CAL_INSTRUCTIONS = {
 }
 
 
-class OsaApp(QObject):
+class UnshrimpApp(QObject):
     def __init__(self, models_dir: Path):
         super().__init__()
         self.models_dir = Path(models_dir)
@@ -96,6 +99,7 @@ class OsaApp(QObject):
         self.tray.pause_toggled.connect(self._on_pause_toggled)
         self.tray.hud_toggled.connect(self._on_hud_toggled)
         self.tray.settings_requested.connect(self._open_settings)
+        self.tray.about_requested.connect(self._show_about)
         self.tray.quit_requested.connect(self._on_quit)
         self.tray.continue_anyway.connect(self._on_continue_anyway)
         self.tray.sync_hud_action(self.hud.isVisible())
@@ -124,6 +128,10 @@ class OsaApp(QObject):
 
         # calibration bookkeeping
         self._cal: CalibrationSession | None = None
+
+        # the mascot: a very large shrimp that fades in as you slouch
+        self.mascot = MascotWindow()
+        self._good_streak = 0
 
         # posture history + stretch reminders
         self.log = PostureLog(config_mod.APP_DIR / "log.db")
@@ -155,7 +163,7 @@ class OsaApp(QObject):
         monitor was unplugged since last run), bring it home."""
         from PySide6.QtGui import QGuiApplication
 
-        from osa import diag
+        from unshrimp import diag
 
         screens = [s.availableGeometry() for s in QGuiApplication.screens()]
         if not screens:
@@ -174,17 +182,26 @@ class OsaApp(QObject):
 
     # ------------------------------------------------------------------
     def start(self) -> None:
-        from osa import diag
+        from unshrimp import diag
 
         diag.log(f"app: starting (baseline={'yes' if self.baseline else 'no'})")
         QTimer.singleShot(0, self.tray.show_when_ready)
         if self.baseline is None:
-            self.tray.toast(
-                "Welcome to OSA",
-                "Sit tall, then choose Calibrate… from the tray menu.",
-            )
+            self._show_welcome()
         self.worker.start()
         self.reminder_timer.start()
+
+    def _show_welcome(self) -> None:
+        from .welcome import WelcomeDialog
+
+        dlg = WelcomeDialog(self.tray.icon)
+        if dlg.exec() and dlg.calibrate_requested:
+            self.start_calibration()
+
+    def _show_about(self) -> None:
+        from .welcome import WelcomeDialog
+
+        WelcomeDialog(self.tray.icon, about_mode=True).exec()
 
     def _on_hud_double_clicked(self) -> None:
         if self.baseline is None and self._cal is None:
@@ -213,6 +230,7 @@ class OsaApp(QObject):
     def start_calibration(self) -> None:
         self._cal = CalibrationSession()
         self.tray.show_continue(False)
+        self.mascot.force_hide()
         self.worker.preview_enabled = True
         self.preview_win.set_instruction(*_CAL_INSTRUCTIONS["setup"])
         self.preview_win.set_caption("setup check…")
@@ -274,7 +292,7 @@ class OsaApp(QObject):
         self._last_prev = self.preview_win.pos()
 
     def _cal_step(self, sig) -> None:
-        from osa import diag
+        from unshrimp import diag
 
         res = self._cal.feed(sig, time.monotonic())
         self.hud.set_status("calibrating", res.progress or res.phase)
@@ -345,8 +363,23 @@ class OsaApp(QObject):
         if dev is not None:
             self._accumulate(state, dev)
         self._render(state, dev)
+        self._adapt(state, dev)
         for ev in events:
             self._handle_event(ev)
+
+    def _adapt(self, state: State, dev: float | None) -> None:
+        """Mascot visibility + adaptive inference rate, driven per frame."""
+        scorable = state.value in ("good", "drifting", "bad")
+        self.mascot.set_level(dev if scorable else None)
+
+        if dev is not None and dev < 0.6:
+            self._good_streak += 1
+        else:
+            self._good_streak = 0
+        rate = inference_rate(state.value, self._good_streak)
+        interval = 1.0 / rate
+        if getattr(self.worker, "inference_interval", None) != interval:
+            self.worker.inference_interval = interval
 
     def _accumulate(self, state: State, dev: float) -> None:
         m = int(time.time() // 60)
@@ -423,13 +456,28 @@ class OsaApp(QObject):
 
     # ------------------------------------------------------------------
     def _on_pause_toggled(self, paused: bool) -> None:
+        from unshrimp import diag
+
         self.tray.set_paused_ui(paused)
         if paused:
+            if self._cal is not None:  # abort any calibration in flight
+                self._cal = None
+                self.tray.show_continue(False)
+                self.worker.preview_enabled = False
+                self.preview_win.set_instruction("", "")
+                self.preview_win.hide()
+            self.mascot.force_hide()
             self.machine.pause()
             self.hud.set_status("paused", "paused")
             self.tray.set_state("paused", "")
+            # stop the camera completely: no light, no power, instant resume
+            diag.log("pause: stopping camera")
+            self.worker.stop()
+            self.worker.wait(4000)
         else:
             self.machine.resume(time.monotonic())
+            diag.log("resume: restarting camera")
+            self._restart_worker()
 
     def _on_hud_toggled(self, visible: bool) -> None:
         self.hud.setVisible(visible)
@@ -438,7 +486,7 @@ class OsaApp(QObject):
         config_mod.save(self.cfg)
 
     def _on_cam_error(self) -> None:
-        from osa import diag
+        from unshrimp import diag
 
         diag.log("camera: error")
         if self.machine.state is not State.PAUSED:
@@ -448,7 +496,7 @@ class OsaApp(QObject):
                 self._handle_event(ev)
 
     def _on_cam_recovered(self) -> None:
-        from osa import diag
+        from unshrimp import diag
 
         diag.log("camera: recovered")
         if self.machine.state is State.CAMERA_ERROR:

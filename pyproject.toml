@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "osa"
-version = "1.0.0"
-description = "Optimal Spinal Alignment — a local, private posture guard"
+name = "unshrimp"
+version = "1.1.0"
+description = "Unshrimp — don't get shrimped. A local, private posture guard."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/msb090219/osa"
+Homepage = "https://github.com/msb090219/unshrimp"
 
 [tool.setuptools.packages.find]
-include = ["osa*"]
+include = ["unshrimp*"]

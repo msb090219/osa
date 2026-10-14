@@ -1,27 +1,51 @@
 """Config persistence — one small JSON file, in the platform's proper place.
 
-Windows: %APPDATA%\\OSA · macOS: ~/Library/Application Support/OSA ·
-elsewhere: ~/.config/OSA. Posture baselines and settings live here, outside
-the repo, and never leave the machine.
+Windows: %APPDATA%\\Unshrimp · macOS: ~/Library/Application Support/Unshrimp ·
+elsewhere: ~/.config/Unshrimp. Posture baselines and settings live here,
+outside the repo, and never leave the machine.
+
+Unshrimp was previously called OSA — data migrates automatically from the
+old folder on first run (the old folder is left untouched).
 """
 from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
 
-APP_NAME = "OSA"
+APP_NAME = "Unshrimp"
+_LEGACY_NAME = "OSA"
 
-if sys.platform == "win32":
-    APP_DIR = Path(os.environ.get("APPDATA", Path.home())) / APP_NAME
-elif sys.platform == "darwin":
-    APP_DIR = Path.home() / "Library" / "Application Support" / APP_NAME
-else:
-    APP_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / APP_NAME
 
+def _data_dir(app_name: str) -> Path:
+    if sys.platform == "win32":
+        return Path(os.environ.get("APPDATA", Path.home())) / app_name
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / app_name
+    return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / app_name
+
+
+APP_DIR = _data_dir(APP_NAME)
 CONFIG_PATH = APP_DIR / "config.json"
+
+
+def migrate_legacy() -> None:
+    """One-time: copy config + history from the OSA folder, if this is the
+    first Unshrimp run and the old data exists."""
+    legacy = _data_dir(_LEGACY_NAME)
+    if not legacy.is_dir() or CONFIG_PATH.exists():
+        return
+    APP_DIR.mkdir(parents=True, exist_ok=True)
+    for name in ("config.json", "log.db"):
+        src = legacy / name
+        if src.is_file():
+            try:
+                shutil.copy2(src, APP_DIR / name)
+            except OSError:
+                pass
 
 DEFAULTS: dict = {
     "camera_index": 0,

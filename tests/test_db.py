@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 
-from osa.storage.db import PostureLog
+from unshrimp.storage.db import PostureLog
 
 
 def mklog(tmp_path):

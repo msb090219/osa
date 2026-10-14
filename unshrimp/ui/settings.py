@@ -41,8 +41,11 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.cfg = cfg
         self._cam_changed = False
-        self.setWindowTitle("OSA — Settings")
+        self.setWindowTitle("Unshrimp — Settings")
         self.setMinimumWidth(440)
+        from . import theme
+
+        self.setStyleSheet(theme.DIALOG_QSS)
 
         tabs = QTabWidget()
         tabs.addTab(self._general_tab(), "&General")
@@ -138,7 +141,7 @@ class SettingsDialog(QDialog):
 
         import sys
 
-        import osa.autostart as autostart
+        import unshrimp.autostart as autostart
 
         if sys.platform == "win32":
             self.autostart = QCheckBox("launch OSA when Windows starts")
@@ -191,7 +194,7 @@ class SettingsDialog(QDialog):
         cfg["reminder_enabled"] = self.reminder.isChecked()
         cfg["reminder_interval_min"] = int(self.reminder_min.value())
 
-        import osa.autostart as autostart
+        import unshrimp.autostart as autostart
 
         if self.autostart is not None:
             try:

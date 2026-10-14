@@ -38,7 +38,7 @@ IDENTITY_MATRIX = [
 
 
 def signals(ear_y, sh_y, face_halfw, matrix=IDENTITY_MATRIX, sh_halfw=0.18):
-    from osa.vision.metrics import compute_signals
+    from unshrimp.vision.metrics import compute_signals
 
     return compute_signals(pose(ear_y, sh_y, sh_halfw), face(face_halfw), matrix)
 
@@ -62,7 +62,7 @@ def test_hunching_decreases_sink_and_increases_lean():
 
 
 def test_missing_any_model_yields_not_ok():
-    from osa.vision.metrics import compute_signals
+    from unshrimp.vision.metrics import compute_signals
 
     assert not compute_signals(None, face(0.07), IDENTITY_MATRIX).ok
     assert not compute_signals(pose(0.3, 0.6), None, IDENTITY_MATRIX).ok
@@ -77,7 +77,7 @@ def test_too_far_away_not_ok():
 def test_euler_identity_and_simple_rotations():
     import math
 
-    from osa.vision.metrics import euler_from_matrix
+    from unshrimp.vision.metrics import euler_from_matrix
 
     assert all(abs(a) < 1e-9 for a in euler_from_matrix(IDENTITY_MATRIX))
 

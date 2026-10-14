@@ -14,7 +14,7 @@ except ImportError:  # non-Windows platforms
     winreg = None
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-VALUE_NAME = "OSA"
+VALUE_NAME = "Unshrimp"
 
 
 def _command() -> str:
