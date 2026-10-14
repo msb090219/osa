@@ -85,7 +85,7 @@ class UnshrimpApp(QObject):
             except (KeyError, TypeError, ValueError):
                 # stale calibration format or corrupt data — start fresh
                 self.cfg["baseline"] = None
-        self.smoother = Smoother(window=5, max_yaw_deg=30.0)
+        self.smoother = Smoother()  # 2.5s time window, min 3 frames, 30° yaw gate
 
         self.hud = Hud()
         hud_cfg = self.cfg["hud"]
@@ -100,6 +100,7 @@ class UnshrimpApp(QObject):
         self.tray.hud_toggled.connect(self._on_hud_toggled)
         self.tray.settings_requested.connect(self._open_settings)
         self.tray.about_requested.connect(self._show_about)
+        self.tray.mascot_toggled.connect(self.set_mascot_enabled)
         self.tray.quit_requested.connect(self._on_quit)
         self.tray.continue_anyway.connect(self._on_continue_anyway)
         self.tray.sync_hud_action(self.hud.isVisible())
@@ -209,6 +210,44 @@ class UnshrimpApp(QObject):
         else:
             self._open_settings()
 
+    # ------------------------------------------------------------------
+    # settings hooks (live-apply: SettingsDialog mutates cfg, then calls these)
+    def save_cfg(self) -> None:
+        config_mod.save(self.cfg)
+
+    def apply_breaks(self) -> None:
+        """Settings changed stretch-break settings — re-time the timer."""
+        self.reminder_timer.setInterval(
+            int(self.cfg["reminder_interval_min"] * 60_000)
+        )
+        config_mod.save(self.cfg)
+
+    def apply_thresholds(self) -> None:
+        self.machine.thr.grace_s = self.cfg["grace_s"]
+        self.machine.thr.renag_s = self.cfg["renag_s"]
+        self.machine.thr.away_s = self.cfg["away_s"]
+        config_mod.save(self.cfg)
+
+    def apply_mascot_settings(self) -> None:
+        if not self.cfg.get("mascot_enabled"):
+            self.mascot.force_hide()
+        else:
+            self.mascot.set_options(
+                float(self.cfg.get("mascot_opacity", 0.87)),
+                str(self.cfg.get("mascot_size", "m")),
+                bool(self.cfg.get("mascot_bob", True)),
+            )
+        self.tray.set_mascot_checked(bool(self.cfg.get("mascot_enabled")))
+        config_mod.save(self.cfg)
+
+    def set_mascot_enabled(self, on: bool) -> None:
+        self.cfg["mascot_enabled"] = on
+        self.apply_mascot_settings()
+
+    def _toast(self, title: str, body: str, seconds: int = 6) -> None:
+        if self.cfg.get("toasts_enabled", True):
+            self.tray.toast(title, body, seconds)
+
     def shutdown(self) -> None:
         if self._quitting:
             return
@@ -237,7 +276,7 @@ class UnshrimpApp(QObject):
         self.preview_win.show()
         self._place_preview()
         self.preview_win.raise_()
-        self.tray.toast(
+        self._toast(
             "Setup check",
             "Sit facing the camera and look at the CENTER of your screen…",
         )
@@ -247,7 +286,7 @@ class UnshrimpApp(QObject):
         if self._cal is not None:
             self._cal.force_continue(time.monotonic())
             self.tray.show_continue(False)
-            self.tray.toast(
+            self._toast(
                 "Setup checks skipped",
                 "Calibrating anyway — watch for wobblier scoring.",
             )
@@ -304,19 +343,19 @@ class UnshrimpApp(QObject):
         self.preview_win.set_caption(caption)
         for ev in res.events:
             if ev in _CAL_TOASTS:
-                self.tray.toast(*_CAL_TOASTS[ev])
+                self._toast(*_CAL_TOASTS[ev])
                 self.preview_win.set_instruction(*_CAL_INSTRUCTIONS[ev])
                 if ev == "enter_tall":
                     self.tray.show_continue(False)
             elif ev == "setup_stuck":
                 self.tray.show_continue(True)
-                self.tray.toast(
+                self._toast(
                     "Setup check stuck",
                     "Fix what the HUD shows, or choose 'Continue anyway' in "
                     "the tray menu.",
                 )
             elif ev.startswith("failed:"):
-                self.tray.toast("Calibration failed", res.hint or ev)
+                self._toast("Calibration failed", res.hint or ev)
             elif ev == "calibrated" and res.baseline is not None:
                 self._accept_baseline(res.baseline)
 
@@ -338,7 +377,7 @@ class UnshrimpApp(QObject):
         notes = " (auto-tuned ✓)" if tune > 1.0 else ""
         if (built.report or {}).get("degraded"):
             notes += " · setup checks were skipped"
-        self.tray.toast("Calibrated ✓", f"Watching your posture{notes}.")
+        self._toast("Calibrated ✓", f"Watching your posture{notes}.")
         self.hud.set_live(0.0, "good")
 
     # ------------------------------------------------------------------
@@ -353,7 +392,7 @@ class UnshrimpApp(QObject):
         if self.baseline is None:
             return
 
-        smoothed = self.smoother.push(sig)
+        smoothed = self.smoother.push(sig, time.monotonic())
         dev = (
             self.baseline.deviation(smoothed, sensitivity=self.cfg["sensitivity"])
             if smoothed is not None
@@ -370,7 +409,10 @@ class UnshrimpApp(QObject):
     def _adapt(self, state: State, dev: float | None) -> None:
         """Mascot visibility + adaptive inference rate, driven per frame."""
         scorable = state.value in ("good", "drifting", "bad")
-        self.mascot.set_level(dev if scorable else None)
+        if self.cfg.get("mascot_enabled", True):
+            self.mascot.set_level(dev if scorable else None)
+        elif self.mascot.isVisible():
+            self.mascot.force_hide()
 
         if dev is not None and dev < 0.6:
             self._good_streak += 1
@@ -413,7 +455,7 @@ class UnshrimpApp(QObject):
             return
         ex = exs[self._ex_i % len(exs)]
         self._ex_i += 1
-        self.tray.toast(f"Stretch break: {ex['name']}", ex.get("how", ""))
+        self._toast(f"Stretch break: {ex['name']}", ex.get("how", ""))
 
     # ------------------------------------------------------------------
     def _render(self, state: State, dev: float | None) -> None:
@@ -441,7 +483,7 @@ class UnshrimpApp(QObject):
 
     def _handle_event(self, ev: str) -> None:
         if ev in (EVENT_ALERT, EVENT_RENAG):
-            self.tray.toast(
+            self._toast(
                 "Sit tall" if ev == EVENT_ALERT else "Still hunched…",
                 "Lengthen the back of your neck, chin gently back, "
                 "shoulders down.",
@@ -449,9 +491,9 @@ class UnshrimpApp(QObject):
             if self.cfg.get("sound_on"):
                 _chime()
         elif ev == EVENT_RECOVERED:
-            self.tray.toast("Back in line ✓", "Good posture restored.")
+            self._toast("Back in line ✓", "Good posture restored.")
         elif ev == EVENT_CAM_ERROR:
-            self.tray.toast("Camera unavailable", "Check the privacy shutter / "
+            self._toast("Camera unavailable", "Check the privacy shutter / "
                               "other apps. Retrying every few seconds…")
 
     # ------------------------------------------------------------------
@@ -509,25 +551,19 @@ class UnshrimpApp(QObject):
         QApplication.instance().quit()
 
     def _open_settings(self) -> None:
-        from PySide6.QtWidgets import QDialog
-
         from .settings import SettingsDialog
 
-        dlg = SettingsDialog(self.cfg, log=self.log)
+        dlg = SettingsDialog(self.cfg, self)
+        self._settings_dlg = dlg  # keep alive while open
         dlg.calibrate_requested.connect(
             lambda: (dlg.accept(), self.start_calibration())
         )
         dlg.reset_baseline_requested.connect(self._reset_baseline)
-        if dlg.exec() == QDialog.Accepted:
-            cam_changed = dlg.apply_to(self.cfg)
-            self.machine.thr.grace_s = self.cfg["grace_s"]
-            self.machine.thr.renag_s = self.cfg["renag_s"]
-            self.reminder_timer.setInterval(
-                int(self.cfg["reminder_interval_min"] * 60_000)
-            )
-            config_mod.save(self.cfg)
-            if cam_changed:
-                self._restart_worker()
+        dlg.exec()
+
+    def restart_camera(self) -> None:
+        """Public hook for Settings' camera picker."""
+        self._restart_worker()
 
     def _reset_baseline(self) -> None:
         self.cfg["baseline"] = None
@@ -535,7 +571,7 @@ class UnshrimpApp(QObject):
         self.baseline = None
         self.machine = PostureStateMachine(self.machine.thr)  # back to UNCALIBRATED
         self._sync_uncalibrated_ui()
-        self.tray.toast("Baseline reset", "Calibrate when you're ready.")
+        self._toast("Baseline reset", "Calibrate when you're ready.")
 
     def _restart_worker(self) -> None:
         self.worker.stop()

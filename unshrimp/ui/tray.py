@@ -6,9 +6,9 @@ right-click by default); right-click still works too.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, QRectF, QTimer, Signal
+from PySide6.QtCore import QObject, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QCursor, QIcon, QPainter, QPixmap
-from PySide6.QtWidgets import QMenu, QSystemTrayIcon
+from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QWidget, QHBoxLayout, QLabel
 
 from . import theme
 from .shrimp import paint_shrimp
@@ -41,6 +41,24 @@ def shrimp_icon(color_hex: str) -> QIcon:
     return icon
 
 
+def shrimp_pixmap_sized(size: int, color_hex: str) -> QPixmap:
+    """A square tinted shrimp pixmap (master art when provided)."""
+    from . import assets as _assets
+
+    pm = QPixmap(size, size)
+    pm.fill(QColor(0, 0, 0, 0))
+    p = QPainter(pm)
+    art = _assets.tinted_shrimp(color_hex, size, size)
+    if art is not None:
+        p.drawPixmap((size - art.width()) // 2, (size - art.height()) // 2, art)
+    else:
+        body_h = int(size * 0.66)
+        paint_shrimp(p, QRectF(0, (size - body_h) / 2, size, body_h), color_hex,
+                     details=False)
+    p.end()
+    return pm
+
+
 class Tray(QObject):
     calibrate_requested = Signal()
     pause_toggled = Signal(bool)  # True = now paused
@@ -48,6 +66,7 @@ class Tray(QObject):
     settings_requested = Signal()
     quit_requested = Signal()
     about_requested = Signal()
+    mascot_toggled = Signal(bool)  # quick toggle from the menu
     continue_anyway = Signal()  # skip a stuck setup check during calibration
 
     def __init__(self, parent=None):
@@ -59,24 +78,50 @@ class Tray(QObject):
         # — status items created before the macOS event loop runs are the
         # classic "icon never appears" failure.
 
+        from . import theme
+
         self.menu = QMenu()
-        self.status_action = QAction("status: starting…", self.menu)
-        self.status_action.setEnabled(False)
+        self.menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.menu.setStyleSheet(theme.MENU_QSS)
+
+        # status header: tinted mini shrimp + state name (not clickable)
+        self._header_widget = QWidget()
+        hrow = QHBoxLayout(self._header_widget)
+        hrow.setContentsMargins(14, 8, 14, 8)
+        hrow.setSpacing(8)
+        self._header_shrimp = QLabel()
+        self._header_shrimp.setPixmap(
+            shrimp_pixmap_sized(22, STATE_COLORS["uncalibrated"])
+        )
+        self._header_text = QLabel("starting…")
+        self._header_text.setStyleSheet("font-weight: 700; border: none;")
+        hrow.addWidget(self._header_shrimp)
+        hrow.addWidget(self._header_text)
+        hrow.addStretch(1)
+        from PySide6.QtWidgets import QWidgetAction
+
+        header_action = QWidgetAction(self.menu)
+        header_action.setDefaultWidget(self._header_widget)
+
         self.cal_action = QAction("&Calibrate…", self.menu)
         self.cont_action = QAction("Continue &anyway (skip setup checks)", self.menu)
         self.cont_action.setVisible(False)
         self.pause_action = QAction("&Pause (meetings)", self.menu)
         self.hud_action = QAction("Show &HUD", self.menu)
+        self.mascot_action = QAction("Floating &shrimp", self.menu)
+        self.mascot_action.setCheckable(True)
+        self.mascot_action.setChecked(True)
         self.settings_action = QAction("&Settings…", self.menu)
         self.about_action = QAction("&About Unshrimp", self.menu)
         self.quit_action = QAction("&Quit", self.menu)
 
+        self.menu.addAction(header_action)
+        self.menu.addSeparator()
         for a in (
-            self.status_action,
-            self.menu.addSeparator(),
             self.cal_action,
             self.pause_action,
             self.hud_action,
+            self.mascot_action,
             self.settings_action,
             self.about_action,
             self.menu.addSeparator(),
@@ -89,6 +134,7 @@ class Tray(QObject):
         self.cont_action.triggered.connect(self.continue_anyway.emit)
         self.pause_action.triggered.connect(self._on_pause)
         self.hud_action.triggered.connect(self._on_hud)
+        self.mascot_action.toggled.connect(self.mascot_toggled.emit)
         self.settings_action.triggered.connect(self.settings_requested)
         self.about_action.triggered.connect(self.about_requested)
         self.quit_action.triggered.connect(self.quit_requested)
@@ -139,6 +185,9 @@ class Tray(QObject):
     def show_continue(self, visible: bool) -> None:
         self.cont_action.setVisible(visible)
 
+    def set_mascot_checked(self, on: bool) -> None:
+        self.mascot_action.setChecked(on)
+
     def set_paused_ui(self, paused: bool) -> None:
         self._paused = paused
         self.pause_action.setText("&Resume" if paused else "&Pause (meetings)")
@@ -147,9 +196,11 @@ class Tray(QObject):
     def set_state(self, key: str, detail: str) -> None:
         color = STATE_COLORS.get(key, STATE_COLORS["uncalibrated"])
         self.icon.setIcon(shrimp_icon(color))
+        self._header_shrimp.setPixmap(shrimp_pixmap_sized(22, color))
         label = key.replace("_", " ")
-        self.icon.setToolTip(f"Unshrimp — {label}" + (f" ({detail})" if detail else ""))
-        self.status_action.setText(f"status: {label}" + (f" · {detail}" if detail else ""))
+        text = f"Unshrimp · {label}" + (f" · {detail}" if detail else "")
+        self._header_text.setText(text)
+        self.icon.setToolTip(text)
 
     def toast(self, title: str, body: str, seconds: int = 6) -> None:
         self.icon.showMessage(title, body, QSystemTrayIcon.Information, seconds * 1000)

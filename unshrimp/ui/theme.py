@@ -85,3 +85,23 @@ QSlider::handle:horizontal {{
     width: 14px; margin: -5px 0; border-radius: 7px; background: {SHRIMP};
 }}
 """
+
+# --- tray menu ----------------------------------------------------------------
+MENU_QSS = f"""
+QMenu {{
+    background: #16181d;
+    border: 1px solid #23262d;
+    border-radius: 10px;
+    padding: 6px 2px;
+}}
+QMenu::item {{
+    color: {TEXT};
+    padding: 7px 24px 7px 14px;
+    border-radius: 6px;
+    margin: 1px 10px;
+}}
+QMenu::item:selected {{ background: #262a33; }}
+QMenu::separator {{ height: 1px; background: #23262d; margin: 6px 12px; }}
+QMenu::item:disabled {{ color: {MUTED}; }}
+QLabel {{ color: {TEXT_MUTED}; }}
+"""

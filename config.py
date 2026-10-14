@@ -59,6 +59,11 @@ DEFAULTS: dict = {
     "away_s": 15.0,
     "recovery_s": 10.0,
     "sound_on": False,
+    "toasts_enabled": True,
+    "mascot_enabled": True,
+    "mascot_size": "m",  # s | m | l
+    "mascot_opacity": 0.87,
+    "mascot_bob": True,
     "reminder_enabled": True,
     "reminder_interval_min": 40,
     "exercises": [
