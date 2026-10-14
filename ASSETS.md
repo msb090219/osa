@@ -1,18 +1,35 @@
 # Brand assets — design spec
 
 Unshrimp's built-in art is drawn in code, but **designed art always wins**:
-drop any of these PNGs into `assets/brand/` and the app uses them instead —
-no code changes, no rebuild. Missing files quietly fall back.
+drop PNGs into `assets/brand/` and the app uses them instead — no code
+changes, no rebuild. Missing files quietly fall back to the drawn shrimp.
 
-| File | Size (px) | Used for | Notes |
-|---|---|---|---|
-| `shrimp_mascot.png` | ~600 × 380 | The big shrimp that fades in when you slouch | Transparent background; the whole image is drawn with fading opacity, so keep margins around the shrimp |
-| `welcome_art.png` | ~900 × 520 | Welcome / About card art | Transparent background; scaled to fit a 480-wide card |
-| `banner.png` | 1280 × 640 | GitHub social preview (README) | Committed file wins — `tools/make_banner.py` won't overwrite it |
-| `shrimp_mark.png` | 256 × 256 | *(reserved)* app-wide mark | Full-color; the tray icon is code-drawn because it must re-tint per posture state |
+## The four deliverables
 
-Guidelines:
+| # | File | Size (px) | Where it appears | Color rules |
+|---|---|---|---|---|
+| 1 | `shrimp_master.png` | **1024 × 1024** | Everywhere tinted: tray icon, the 10 HUD meter shrimp, app icon | **One flat solid color on transparency** (any color — the app re-tints per posture state). Details as shape/cutout, not different colors |
+| 2 | `shrimp_mascot.png` | **1280 × 800** | The big shrimp that fades in when you slouch | Full color, go wild. Wide horizontal composition (the hunch arch); generous margins — the whole image fades/bobs |
+| 3 | `welcome_art.png` | **900 × 520** | Welcome / About card | Full color. No text in the image (the card lays text itself) |
+| 4 | `banner.png` | **1280 × 640** | GitHub social preview (README top) | Full color. Text allowed if you want it in the banner; keep it out of the outer ~64 px (GitHub crops slightly) |
 
-- **Palette anchor**: cooked-shrimp salmon `#ec8f6b` (from the founding reference), on plate `#121418`, text `#e5e8ec`, muted `#9ca3af`.
-- Transparent PNGs, sRGB. Keep the shrimp's silhouette recognizable at small sizes: wide low arch, head dipping left, tail flicking right.
-- Iterate freely — replacing a file changes the app on next launch.
+## Design guidance
+
+- **Anchor palette**: cooked-shrimp salmon `#ec8f6b`, plate `#121418`,
+  text `#e5e8ec`, muted `#9ca3af`. State colors the app tints with:
+  good `#22c55e` · drift `#f59e0b` · bad `#ef4444` · calibrating `#3b82f6` · muted `#6b7280`
+- The silhouette is the brand: **wide, low arch — head dipping left,
+  back arched over, tail flicking down right** (the hunch itself). It must
+  still read at 17 px, so keep the outline bold and simple.
+- Transparent PNGs, sRGB.
+
+## Generating with AI tools
+
+Image generators often can't output transparency. Easiest workflow:
+generate on a **solid background of exactly `#121418`** (the plate color),
+then either:
+- export/select transparency in your editor of choice, or
+- just ask Min-seo to run the background knockout — with a known solid
+  background color, removal is a one-line script.
+
+Iterate freely: replacing a file changes the app on next launch.
