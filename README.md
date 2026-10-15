@@ -6,6 +6,16 @@
 
 > Nothing ever leaves your machine.
 
+## What it looks like
+
+| The bar, honest at a glance | Guided calibration |
+|---|---|
+| ![HUD states](docs/shots/hud-states.png) | ![Calibration](docs/shots/calibration.png) |
+
+| Left-click menu | Settings (applies live) | The mascot, mid-slouch |
+|---|---|---|
+| ![Menu](docs/shots/menu.png) | ![Settings](docs/shots/settings.png) | ![Mascot](docs/shots/mascot.png) |
+
 ## Download
 
 **Windows:** grab `unshrimp-win64.zip` from [**Releases**](https://github.com/msb090219/unshrimp/releases), unzip, and double-click **`unshrimp.exe`**. No Python or installs needed; the posture models ship inside the zip. After unzipping, right-click the exe → Properties → tick **Unblock** to stop the "downloaded from the internet" prompt on every launch (the binaries are unsigned).

@@ -65,6 +65,7 @@ class MascotWindow(QWidget):
         self._max_opacity = 0.87
         self._scale = 1.0
         self._bob_on = True
+        self._art = None  # pre-scaled mascot art — the paint loop only blits
 
         self._cur = 0.0  # eased opacity
         self._cur_lift = 0.0  # eased rise, px
@@ -80,6 +81,10 @@ class MascotWindow(QWidget):
         self._max_opacity = max(0.2, min(1.0, max_opacity))
         self._scale = _SIZES.get(size_key, 1.0)
         self._bob_on = bob
+        # precompute the art at draw size — the 30fps paint loop must never
+        # load from disk or rescale
+        w = int(_W * 0.92 * self._scale)
+        self._art = assets.shrimp_mascot(w, int(w * 0.62))
         if self.isVisible():
             self.update()
 
@@ -132,8 +137,9 @@ class MascotWindow(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         p.setOpacity(self._cur)
 
-        art = assets.shrimp_mascot(int(_W * 0.92 * self._scale),
-                                   int(_W * 0.92 * self._scale * 0.62))
+        art = self._art if self._art is not None else assets.shrimp_mascot(
+            int(_W * 0.92 * self._scale), int(_W * 0.92 * self._scale * 0.62)
+        )
         bob = (
             _BOB_PX * (0.5 + 0.5 * math.sin(
                 2 * math.pi * (time.monotonic() - self._t0) / _BOB_PERIOD_S

@@ -76,7 +76,7 @@ class SettingsDialog(QDialog):
         tabs.addTab(self._general_tab(), "&General")
         self.stats_tab = StatsTab(app.log)
         tabs.addTab(self.stats_tab, "S&tats")
-        tabs.currentIndexChanged.connect(
+        tabs.currentChanged.connect(
             lambda i: self.stats_tab.refresh()
             if tabs.widget(i) is self.stats_tab else None
         )

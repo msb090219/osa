@@ -10,6 +10,7 @@ from PySide6.QtCore import QObject, QPoint, QTimer
 import config as config_mod
 from unshrimp.core.baseline import Baseline
 from unshrimp.core.calibration import CalibrationSession
+from unshrimp.core.idle import IDLE_STOP_S, seconds_idle, should_idle_stop
 from unshrimp.core.rates import inference_rate
 from unshrimp.core.smoother import Smoother
 from unshrimp.core.states import (
@@ -134,6 +135,12 @@ class UnshrimpApp(QObject):
         self.mascot = MascotWindow()
         self._good_streak = 0
 
+        # system-idle camera stop: 5 min without input anywhere → camera off
+        self._idle_stopped = False
+        self.idle_timer = QTimer(self)
+        self.idle_timer.setInterval(5000)
+        self.idle_timer.timeout.connect(self._idle_check)
+
         # posture history + stretch reminders
         self.log = PostureLog(config_mod.APP_DIR / "log.db")
         self.session_id = self.log.start_session()
@@ -191,6 +198,7 @@ class UnshrimpApp(QObject):
             self._show_welcome()
         self.worker.start()
         self.reminder_timer.start()
+        self.idle_timer.start()
 
     def _show_welcome(self) -> None:
         from .welcome import WelcomeDialog
@@ -253,6 +261,7 @@ class UnshrimpApp(QObject):
             return
         self._quitting = True
         self.reminder_timer.stop()
+        self.idle_timer.stop()
         self._flush_bucket()
         self.log.end_session(self.session_id)
         self.cfg["hud"]["x"], self.cfg["hud"]["y"] = (
@@ -406,6 +415,28 @@ class UnshrimpApp(QObject):
         for ev in events:
             self._handle_event(ev)
 
+    def _idle_check(self) -> None:
+        """Poll system idle: stop the camera after long silence, restart on
+        any input. Never while calibrating or manually paused."""
+        if self._quitting:
+            return
+        from unshrimp import diag
+
+        idle = seconds_idle()
+        if not self._idle_stopped:
+            if should_idle_stop(
+                idle, self._cal is not None, self.machine.state is State.PAUSED
+            ):
+                self._idle_stopped = True
+                diag.log(f"idle: {idle:.0f}s without input — camera off")
+                self.mascot.force_hide()
+                self.worker.stop()
+                self.worker.wait(4000)
+        elif idle < IDLE_STOP_S:  # some input came back
+            self._idle_stopped = False
+            diag.log("idle: input returned — camera on")
+            self._restart_worker()
+
     def _adapt(self, state: State, dev: float | None) -> None:
         """Mascot visibility + adaptive inference rate, driven per frame."""
         scorable = state.value in ("good", "drifting", "bad")
@@ -518,6 +549,7 @@ class UnshrimpApp(QObject):
             self.worker.wait(4000)
         else:
             self.machine.resume(time.monotonic())
+            self._idle_stopped = False  # manual resume overrides idle state
             diag.log("resume: restarting camera")
             self._restart_worker()
 
