@@ -1,4 +1,4 @@
-"""Unit tests for osa.vision.metrics — synthetic poses, no camera needed."""
+"""Unit tests for unshrimp.vision.metrics — synthetic poses, no camera needed."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

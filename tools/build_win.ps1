@@ -1,4 +1,4 @@
-# Build the Windows release zip: dist/osa-win64.zip
+# Build the Windows release zip: dist/unshrimp-win64.zip
 # Usage: powershell -ExecutionPolicy Bypass -File tools\build_win.ps1
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -13,7 +13,7 @@ if (-Not (Test-Path ".venv\Scripts\python.exe")) {
 & .venv\Scripts\python.exe -m PyInstaller unshrimp.spec --noconfirm --clean
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 
-if (Test-Path dist\osa-win64.zip) { Remove-Item dist\osa-win64.zip }
-Compress-Archive -Path dist\osa -DestinationPath dist\osa-win64.zip
-$mb = [math]::Round((Get-Item dist\osa-win64.zip).Length / 1MB, 1)
-Write-Host "built dist\osa-win64.zip ($mb MB)"
+if (Test-Path dist\unshrimp-win64.zip) { Remove-Item dist\unshrimp-win64.zip }
+Compress-Archive -Path dist\unshrimp -DestinationPath dist\unshrimp-win64.zip
+$mb = [math]::Round((Get-Item dist\unshrimp-win64.zip).Length / 1MB, 1)
+Write-Host "built dist\unshrimp-win64.zip ($mb MB)"
