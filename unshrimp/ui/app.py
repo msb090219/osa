@@ -203,14 +203,14 @@ class UnshrimpApp(QObject):
     def _show_welcome(self) -> None:
         from .welcome import WelcomeDialog
 
-        dlg = WelcomeDialog(self.tray.icon)
+        dlg = WelcomeDialog(self.hud)
         if dlg.exec() and dlg.calibrate_requested:
             self.start_calibration()
 
     def _show_about(self) -> None:
         from .welcome import WelcomeDialog
 
-        WelcomeDialog(self.tray.icon, about_mode=True).exec()
+        WelcomeDialog(self.hud, about_mode=True).exec()
 
     def _on_hud_double_clicked(self) -> None:
         if self.baseline is None and self._cal is None:
@@ -585,7 +585,7 @@ class UnshrimpApp(QObject):
     def _open_settings(self) -> None:
         from .settings import SettingsDialog
 
-        dlg = SettingsDialog(self.cfg, self)
+        dlg = SettingsDialog(self.cfg, self, parent=self.hud)
         self._settings_dlg = dlg  # keep alive while open
         dlg.calibrate_requested.connect(
             lambda: (dlg.accept(), self.start_calibration())

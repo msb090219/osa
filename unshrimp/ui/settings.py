@@ -34,10 +34,14 @@ from . import theme
 from .stats import StatsTab
 
 
-def available_cameras(max_index: int = 4) -> list[int]:
-    """Probe camera indices (slow-ish, ~0.5s per closed one) — called on open."""
+def available_cameras(max_index: int = 4, skip: int | None = None) -> list[int]:
+    """Probe camera indices — without ever opening the live in-use device
+    (`skip`), which on Windows disturbs the running capture."""
     out = []
     for i in range(max_index):
+        if i == skip:
+            out.append(i)  # we're streaming from it; it demonstrably exists
+            continue
         cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
         if cap.isOpened():
             out.append(i)
@@ -208,7 +212,7 @@ class SettingsDialog(QDialog):
         card, form = _section("Camera")
         cam_row = QHBoxLayout()
         self.cam = QComboBox()
-        cams = available_cameras()
+        cams = available_cameras(skip=int(c['camera_index']))
         self.cam.addItems([f"Camera {i}" for i in cams])
         try:
             self.cam.setCurrentIndex(cams.index(int(c["camera_index"])))
@@ -382,7 +386,7 @@ class SettingsDialog(QDialog):
             pass
 
     def _rescan(self):
-        cams = available_cameras()
+        cams = available_cameras(skip=int(self.cfg["camera_index"]))
         self.cam.clear()
         self.cam.addItems([f"Camera {i}" for i in cams])
 
