@@ -40,7 +40,7 @@ def list_cameras() -> None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="OSA vision stack demo")
+    ap = argparse.ArgumentParser(description="Unshrimp vision stack demo")
     ap.add_argument("--seconds", type=float, default=20.0)
     ap.add_argument("--camera", type=int, default=0)
     ap.add_argument("--fps", type=float, default=2.0)

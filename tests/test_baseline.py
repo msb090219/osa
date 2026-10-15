@@ -1,4 +1,4 @@
-"""Tests for osa.core.baseline — deviation scoring + v3 persistence."""
+"""Tests for unshrimp.core.baseline — deviation scoring + v3 persistence."""
 from __future__ import annotations
 
 import pytest

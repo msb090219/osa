@@ -1,4 +1,4 @@
-"""Tests for osa.core.states — the alert state machine, fake clock."""
+"""Tests for unshrimp.core.states — the alert state machine, fake clock."""
 from __future__ import annotations
 
 from unshrimp.core.states import (

@@ -1,4 +1,4 @@
-"""Tests for osa.storage.db — minute rollups + day summaries."""
+"""Tests for unshrimp.storage.db — minute rollups + day summaries."""
 from __future__ import annotations
 
 import time

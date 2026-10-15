@@ -1,4 +1,4 @@
-"""Tests for osa.core.calibration — the guided 5-phase pipeline."""
+"""Tests for unshrimp.core.calibration — the guided 5-phase pipeline."""
 from __future__ import annotations
 
 import math

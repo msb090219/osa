@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download the MediaPipe task models used by OSA into ./models/.
+"""Download the MediaPipe task models used by Unshrimp into ./models/.
 
 The two files (~16 MB total) are NOT stored in git. Run this once after
 cloning; it downloads the models and verifies their SHA-256 checksums.

@@ -58,8 +58,8 @@ coll = COLLECT(
 if sys.platform == "darwin":
     BUNDLE(
         coll,
-        name="OSA.app",
-        bundle_identifier="com.msb090219.osa",
+        name="Unshrimp.app",
+        bundle_identifier="com.msb090219.unshrimp",
         info_plist={
             # without this macOS denies (or crashes on) camera access
             "NSCameraUsageDescription": (
